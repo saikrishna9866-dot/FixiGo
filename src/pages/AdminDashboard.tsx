@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { supabaseAdmin } from '../lib/supabaseAdmin';
+import { supabaseAdmin, isSupabaseAdminConfigured } from '../lib/supabaseAdmin';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   LayoutDashboard,
@@ -79,12 +79,13 @@ export const AdminDashboard: React.FC = () => {
   const fetchAllData = async () => {
     setLoading(true);
     try {
+      const client = isSupabaseAdminConfigured ? supabaseAdmin : supabase;
       const [catRes, serRes, userRes, provRes, bookRes] = await Promise.all([
-        supabase.from('categories').select('*').order('created_at', { ascending: false }),
-        supabase.from('services').select('*, categories(name)').order('created_at', { ascending: false }),
-        supabase.from('users_profile').select('*').order('created_at', { ascending: false }),
-        supabase.from('service_providers').select('*, services(title)').order('created_at', { ascending: false }),
-        supabase.from('bookings').select('*, services(title), service_providers(name), users_profile(email)').order('created_at', { ascending: false })
+        client.from('categories').select('*').order('created_at', { ascending: false }),
+        client.from('services').select('*, categories(name)').order('created_at', { ascending: false }),
+        client.from('users_profile').select('*').order('created_at', { ascending: false }),
+        client.from('service_providers').select('*, services(title)').order('created_at', { ascending: false }),
+        client.from('bookings').select('*, services(title), service_providers(name), users_profile(email)').order('created_at', { ascending: false })
       ]);
 
       setCategories(catRes.data || []);
@@ -254,6 +255,16 @@ export const AdminDashboard: React.FC = () => {
           <div className="flex items-center space-x-4">
             <button
               onClick={async () => {
+                if (!isSupabaseAdminConfigured) {
+                  toast.error('Admin configuration missing. Please check VITE_SUPABASE_SERVICE_ROLE_KEY in Settings and restart the server.');
+                  return;
+                }
+                const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+                const serviceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+                if (anonKey === serviceKey || serviceKey === 'your-service-role-key') {
+                  toast.error('Service Role Key is invalid! Please use the correct service_role key from Supabase settings.');
+                  return;
+                }
                 if (!confirm('Are you sure you want to clear ALL data? This cannot be undone.')) return;
                 setClearing(true);
                 const result = await clearDatabase();
@@ -272,6 +283,16 @@ export const AdminDashboard: React.FC = () => {
             </button>
             <button
               onClick={async () => {
+                if (!isSupabaseAdminConfigured) {
+                  toast.error('Admin configuration missing. Please check VITE_SUPABASE_SERVICE_ROLE_KEY in Settings and restart the server.');
+                  return;
+                }
+                const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+                const serviceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+                if (anonKey === serviceKey || serviceKey === 'your-service-role-key') {
+                  toast.error('Service Role Key is invalid! Please use the correct service_role key from Supabase settings.');
+                  return;
+                }
                 setSeeding(true);
                 const result = await seedDatabase();
                 setSeeding(false);
@@ -303,7 +324,36 @@ export const AdminDashboard: React.FC = () => {
               exit={{ opacity: 0, y: -20 }}
               className="space-y-10"
             >
-              {/* Stats Grid */}
+              {/* Debug Config Section */}
+      <div className="mb-8 bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
+        <h2 className="text-lg font-bold mb-4 flex items-center text-yellow-500">
+          <Loader2 className="mr-2" size={20} />
+          Configuration Debugger
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div className="space-y-2">
+            <p className="text-gray-400">Supabase URL:</p>
+            <code className="bg-black/50 p-2 rounded block border border-gray-800">
+              {import.meta.env.VITE_SUPABASE_URL ? `${import.meta.env.VITE_SUPABASE_URL.substring(0, 20)}...` : '❌ MISSING'}
+            </code>
+          </div>
+          <div className="space-y-2">
+            <p className="text-gray-400">Service Role Key (Admin):</p>
+            <code className="bg-black/50 p-2 rounded block border border-gray-800">
+              {import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY && import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY !== 'your-service-role-key' 
+                ? `${import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY.substring(0, 8)}... (Length: ${import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY.length})` 
+                : '❌ MISSING OR PLACEHOLDER'}
+            </code>
+          </div>
+        </div>
+        {!isSupabaseAdminConfigured && (
+          <p className="mt-4 text-red-400 text-xs italic">
+            * Note: If the key is missing above, ensure you added it to the Secrets panel with the "VITE_" prefix and restarted the server.
+          </p>
+        )}
+      </div>
+
+      {/* Stats Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
                   { label: 'Total Users', value: stats.users, icon: Users, color: 'text-white' },

@@ -100,4 +100,9 @@ SELECT id, 'Accountants / Tax consultants', 'Expert financial and tax advisory.'
 SELECT id, 'Ambulance booking', 'Quick and reliable ambulance services.', 'https://images.unsplash.com/photo-1587559070757-f72a388edbba?q=80&w=800&auto=format&fit=crop' FROM categories WHERE name = 'Emergency Services' UNION ALL
 SELECT id, 'Doctor at home / Telemedicine', 'On-demand medical consultations.', 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?q=80&w=800&auto=format&fit=crop' FROM categories WHERE name = 'Emergency Services' UNION ALL
 SELECT id, 'Locksmiths', 'Emergency lock repair and key duplication.', 'https://images.unsplash.com/photo-1558025137-0b406e9cb1ad?q=80&w=800&auto=format&fit=crop' FROM categories WHERE name = 'Emergency Services' UNION ALL
-SELECT id, '24x7 roadside assistance', 'Immediate help for vehicle breakdowns.', 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?q=80&w=800&auto=format&fit=crop' FROM categories WHERE name = 'Emergency Services';
+-- 5. Disable RLS for all tables (Optional, for easier development)
+-- ALTER TABLE users_profile DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE categories DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE services DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE service_providers DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE bookings DISABLE ROW LEVEL SECURITY;

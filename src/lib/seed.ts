@@ -11,8 +11,8 @@ export const seedDatabase = async () => {
       .select();
 
     if (catError) {
-      console.error('Error inserting categories:', catError);
-      throw new Error(`Failed to seed categories: ${catError.message}`);
+      console.error('Detailed Category Seed Error:', catError);
+      throw new Error(`Failed to seed categories: ${catError.message} (${catError.code})`);
     }
 
     // Create a map of category name to new ID
