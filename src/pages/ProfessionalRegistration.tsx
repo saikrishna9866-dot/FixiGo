@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   User, Mail, Phone, Lock, Wrench, MapPin, Upload, Calendar, 
   Loader2, ArrowRight, ArrowLeft, CheckCircle, Briefcase, FileText,
-  Clock, Star
+  Clock, Star, ShieldCheck, Award, AlertCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
@@ -243,29 +243,67 @@ export const ProfessionalRegistration: React.FC = () => {
                   initial={{ opacity: 0, x: 20 }} 
                   animate={{ opacity: 1, x: 0 }} 
                   exit={{ opacity: 0, x: -20 }}
-                  className="space-y-6"
+                  className="space-y-8"
                 >
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Documents</h2>
-                    <p className="text-gray-500 text-sm">Verification is required for trust</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-2xl font-bold text-gray-900 mb-2">Verification Documents</h2>
+                      <p className="text-gray-500 text-sm">Help us verify your identity and skills</p>
+                    </div>
+                    <div className="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-xl text-xs font-bold flex items-center">
+                      <ShieldCheck size={14} className="mr-2" /> Secure Upload
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <label className="group relative flex flex-col items-center justify-center p-10 border-2 border-dashed border-gray-200 rounded-[2rem] cursor-pointer hover:border-yellow-500 hover:bg-yellow-50/30 transition-all">
-                      <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-yellow-100 group-hover:scale-110 transition-all">
-                        <Upload className="text-gray-400 group-hover:text-yellow-600" size={24} />
+
+                  <div className="grid grid-cols-1 gap-6">
+                    <div className="p-6 border-2 border-gray-100 rounded-3xl bg-gray-50/50">
+                      <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center mr-4 shadow-sm">
+                            <FileText className="text-yellow-600" size={20} />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-gray-900">Government ID Proof</h4>
+                            <p className="text-[10px] text-gray-400 uppercase tracking-widest">Aadhar, PAN, or Voter ID</p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-black bg-yellow-100 text-yellow-700 px-2 py-1 rounded uppercase">Required</span>
                       </div>
-                      <span className="text-sm font-bold text-gray-600">ID Proof</span>
-                      <span className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest">PDF or Image</span>
-                      <input type="file" className="hidden" />
-                    </label>
-                    <label className="group relative flex flex-col items-center justify-center p-10 border-2 border-dashed border-gray-200 rounded-[2rem] cursor-pointer hover:border-yellow-500 hover:bg-yellow-50/30 transition-all">
-                      <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-yellow-100 group-hover:scale-110 transition-all">
-                        <User className="text-gray-400 group-hover:text-yellow-600" size={24} />
+                      <label className="group relative flex flex-col items-center justify-center py-10 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:border-yellow-500 hover:bg-white transition-all bg-white/50">
+                        <Upload className="text-gray-300 group-hover:text-yellow-500 mb-2 transition-colors" size={32} />
+                        <span className="text-sm font-bold text-gray-600">Click to upload or drag & drop</span>
+                        <span className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest">PDF, JPG, PNG (Max 5MB)</span>
+                        <input type="file" className="hidden" />
+                      </label>
+                    </div>
+
+                    <div className="p-6 border-2 border-gray-100 rounded-3xl bg-gray-50/50">
+                      <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center mr-4 shadow-sm">
+                            <Award className="text-blue-600" size={20} />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-gray-900">Skill Certificate</h4>
+                            <p className="text-[10px] text-gray-400 uppercase tracking-widest">Any relevant certification</p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-black bg-blue-100 text-blue-700 px-2 py-1 rounded uppercase">Optional</span>
                       </div>
-                      <span className="text-sm font-bold text-gray-600">Profile Photo</span>
-                      <span className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest">JPG or PNG</span>
-                      <input type="file" className="hidden" />
-                    </label>
+                      <label className="group relative flex flex-col items-center justify-center py-10 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:border-yellow-500 hover:bg-white transition-all bg-white/50">
+                        <Upload className="text-gray-300 group-hover:text-yellow-500 mb-2 transition-colors" size={32} />
+                        <span className="text-sm font-bold text-gray-600">Click to upload or drag & drop</span>
+                        <span className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest">PDF, JPG, PNG (Max 5MB)</span>
+                        <input type="file" className="hidden" />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="bg-yellow-50 p-4 rounded-2xl border border-yellow-100 flex items-start">
+                    <AlertCircle className="text-yellow-600 mr-3 shrink-0" size={20} />
+                    <p className="text-xs text-yellow-800 leading-relaxed">
+                      Your documents are encrypted and used only for verification purposes. We never share your personal data with third parties.
+                    </p>
                   </div>
                 </motion.div>
               )}

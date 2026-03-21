@@ -309,6 +309,13 @@ export const BookingPage: React.FC = () => {
                 </h2>
                 
                 <div className="space-y-5">
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex items-center mb-6">
+                    <ShieldCheck className="text-emerald-600 mr-3" size={20} />
+                    <p className="text-xs text-emerald-800 font-medium">
+                      Your data is सुरक्षित (secure). We use industry-standard encryption to protect your personal information.
+                    </p>
+                  </div>
+                  
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">Full Address *</label>
                     <textarea
