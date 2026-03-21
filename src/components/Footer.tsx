@@ -1,41 +1,42 @@
 import React from 'react';
 import { Facebook, Twitter, Instagram, Linkedin } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export const Footer: React.FC = () => {
   return (
     <footer className="bg-gray-50 border-t border-gray-100 pt-16 pb-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-12">
-          <div className="flex items-center space-x-2 mb-8">
-            <div className="bg-black text-white p-2 rounded font-bold text-xl">FG</div>
-            <span className="text-2xl font-bold text-black">FixiGo</span>
-          </div>
+          <Link to="/" className="flex items-center space-x-2 mb-8 group">
+            <div className="bg-black text-white p-2 rounded font-bold text-xl group-hover:bg-yellow-500 transition-colors">FG</div>
+            <span className="text-2xl font-bold text-black">Fixi<span className="text-yellow-500">Go</span></span>
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
           <div>
             <h3 className="text-lg font-bold text-gray-900 mb-6">Company</h3>
             <ul className="space-y-4 text-sm text-gray-600">
-              <li><a href="#" className="hover:text-black">About us</a></li>
-              <li><a href="#" className="hover:text-black">Terms & conditions</a></li>
-              <li><a href="#" className="hover:text-black">Privacy policy</a></li>
-              <li><a href="#" className="hover:text-black">Anti-discrimination policy</a></li>
-              <li><a href="#" className="hover:text-black">Careers</a></li>
+              <li><Link to="/about" className="hover:text-black">About us</Link></li>
+              <li><Link to="/terms" className="hover:text-black">Terms & conditions</Link></li>
+              <li><Link to="/privacy" className="hover:text-black">Privacy policy</Link></li>
+              <li><Link to="/anti-discrimination" className="hover:text-black">Anti-discrimination policy</Link></li>
+              <li><Link to="/careers" className="hover:text-black">Careers</Link></li>
             </ul>
           </div>
           
           <div>
             <h3 className="text-lg font-bold text-gray-900 mb-6">For customers</h3>
             <ul className="space-y-4 text-sm text-gray-600">
-              <li><a href="#" className="hover:text-black">FG reviews</a></li>
-              <li><a href="#" className="hover:text-black">Contact us</a></li>
+              <li><Link to="/reviews" className="hover:text-black">FG reviews</Link></li>
+              <li><Link to="/contact" className="hover:text-black">Contact us</Link></li>
             </ul>
           </div>
 
           <div>
             <h3 className="text-lg font-bold text-gray-900 mb-6">For professionals</h3>
             <ul className="space-y-4 text-sm text-gray-600">
-              <li><a href="#" className="hover:text-black">Register as a professional</a></li>
+              <li><Link to="/register-professional" className="hover:text-black">Register as a professional</Link></li>
             </ul>
           </div>
 

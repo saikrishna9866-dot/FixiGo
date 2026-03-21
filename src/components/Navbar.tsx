@@ -88,6 +88,12 @@ export const Navbar: React.FC = () => {
               Fixi<span className="text-yellow-500">Go</span>
             </Link>
             <Link
+              to="/register-professional"
+              className="hidden lg:flex px-3 py-1.5 rounded-lg text-xs font-bold bg-yellow-50 text-yellow-600 hover:bg-yellow-500 hover:text-black transition-all shadow-sm mr-2"
+            >
+              Become a Pro
+            </Link>
+            <Link
               to="/admin/login"
               className="px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-100 text-gray-600 hover:bg-yellow-500 hover:text-black transition-all shadow-sm"
             >
@@ -219,6 +225,18 @@ export const Navbar: React.FC = () => {
                   {link.name}
                 </Link>
               ))}
+              <Link
+                to="/register-professional"
+                onClick={() => setIsOpen(false)}
+                className={cn(
+                  "block px-3 py-3 rounded-xl text-base font-bold mt-2 text-center transition-all",
+                  location.pathname === '/register-professional'
+                    ? "bg-yellow-500 text-black shadow-lg shadow-yellow-500/20"
+                    : "bg-yellow-50 text-yellow-600 hover:bg-yellow-500 hover:text-black"
+                )}
+              >
+                Register as a Professional
+              </Link>
               <Link
                 to="/admin/login"
                 onClick={() => setIsOpen(false)}

@@ -1,82 +1,99 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   User, Mail, Phone, Lock, Wrench, MapPin, Upload, Calendar, 
-  Loader2, ArrowRight, ArrowLeft, CheckCircle, Briefcase, FileText 
+  Loader2, ArrowRight, ArrowLeft, CheckCircle, Briefcase, FileText,
+  Clock, Star
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
+import { useCategories } from '../context/useData';
 
 export const ProfessionalRegistration: React.FC = () => {
   const navigate = useNavigate();
+  const { categories } = useCategories();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [categories, setCategories] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
     name: '', email: '', phone: '', password: '',
     category_id: '', service_type: '', experience: '', skills: '',
     address: '', city: '', pincode: '',
-    working_days: [] as string[], time_slots: ''
+    working_days: [] as string[], time_slots: '09:00 AM - 06:00 PM'
   });
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
-  const fetchCategories = async () => {
-    const { data } = await supabase.from('categories').select('*');
-    setCategories(data || []);
-  };
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
-    }));
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const nextStep = () => setStep(prev => Math.min(prev + 1, 5));
+  const nextStep = () => {
+    if (step === 1 && (!formData.name || !formData.email || !formData.password)) {
+      toast.error('Please fill in all basic details');
+      return;
+    }
+    setStep(prev => Math.min(prev + 1, 5));
+  };
   const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
 
   const handleSubmit = async () => {
+    if (formData.working_days.length === 0) {
+      toast.error('Please select at least one working day');
+      return;
+    }
+
     setLoading(true);
     try {
       // 1. Auth Signup
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
-        options: { data: { name: formData.name, role: 'provider' } }
+        options: { 
+          data: { 
+            name: formData.name, 
+            role: 'provider' 
+          } 
+        }
       });
+      
       if (authError) throw authError;
+      if (!authData.user) throw new Error('User creation failed');
 
       // 2. Insert into users_profile
-      await supabase.from('users_profile').insert({
-        id: authData.user?.id,
-        name: formData.name,
+      const { error: profileError } = await supabase.from('users_profile').insert({
+        id: authData.user.id,
+        full_name: formData.name,
         email: formData.email,
-        phone: formData.phone,
-        address: formData.address
+        // avatar_url is optional
       });
+      
+      if (profileError) {
+        console.warn('Profile insertion error (may already exist):', profileError);
+      }
 
       // 3. Insert into service_providers
-      await supabase.from('service_providers').insert({
+      const { error: providerError } = await supabase.from('service_providers').insert({
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
-        service_id: formData.category_id,
-        experience: formData.experience,
+        service_id: formData.category_id || null,
+        experience: formData.experience ? `${formData.experience} years` : '0 years',
         address: `${formData.address}, ${formData.city}, ${formData.pincode}`,
-        availability: JSON.stringify({ days: formData.working_days, slots: formData.time_slots })
+        availability: { 
+          days: formData.working_days, 
+          slots: [formData.time_slots] 
+        }
       });
 
-      toast.success('Registration submitted successfully!');
-      navigate('/');
+      if (providerError) throw providerError;
+
+      toast.success('Registration submitted successfully! You can now log in.');
+      navigate('/login');
     } catch (error: any) {
-      toast.error(error.message);
+      console.error('Registration error:', error);
+      toast.error(error.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -94,8 +111,14 @@ export const ProfessionalRegistration: React.FC = () => {
     <div className="min-h-screen pt-24 pb-12 bg-gray-50">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         
+        {/* Header */}
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">Join FixiGo as a Professional</h1>
+          <p className="text-gray-600">Grow your business and reach more customers in your area.</p>
+        </div>
+
         {/* Stepper */}
-        <div className="mb-8">
+        <div className="mb-12">
           <div className="flex items-center justify-between relative">
             <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-gray-200 -z-10"></div>
             <div 
@@ -106,13 +129,13 @@ export const ProfessionalRegistration: React.FC = () => {
             {steps.map((s, i) => (
               <div key={i} className="flex flex-col items-center">
                 <div className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-colors",
-                  step >= i + 1 ? "bg-yellow-500 text-white shadow-md" : "bg-white text-gray-400 border-2 border-gray-200"
+                  "w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300",
+                  step >= i + 1 ? "bg-yellow-500 text-black shadow-lg shadow-yellow-500/30 scale-110" : "bg-white text-gray-400 border-2 border-gray-200"
                 )}>
-                  <s.icon size={18} />
+                  <s.icon size={20} />
                 </div>
                 <span className={cn(
-                  "text-xs font-bold mt-2 uppercase tracking-wider",
+                  "text-[10px] font-bold mt-3 uppercase tracking-widest",
                   step >= i + 1 ? "text-gray-900" : "text-gray-400"
                 )}>{s.label}</span>
               </div>
@@ -120,83 +143,230 @@ export const ProfessionalRegistration: React.FC = () => {
           </div>
         </div>
 
-        {/* Form */}
-        <div className="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden p-8">
-          <AnimatePresence mode="wait">
-            {step === 1 && (
-              <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-                <h2 className="text-2xl font-bold mb-6">Basic Details</h2>
-                <div className="space-y-4">
-                  <input type="text" name="name" placeholder="Full Name" className="w-full p-4 border rounded-xl" value={formData.name} onChange={handleInputChange} />
-                  <input type="email" name="email" placeholder="Email" className="w-full p-4 border rounded-xl" value={formData.email} onChange={handleInputChange} />
-                  <input type="tel" name="phone" placeholder="Phone Number" className="w-full p-4 border rounded-xl" value={formData.phone} onChange={handleInputChange} />
-                  <input type="password" name="password" placeholder="Password" className="w-full p-4 border rounded-xl" value={formData.password} onChange={handleInputChange} />
-                </div>
-              </motion.div>
-            )}
-            {step === 2 && (
-              <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-                <h2 className="text-2xl font-bold mb-6">Professional Details</h2>
-                <div className="space-y-4">
-                  <select name="category_id" className="w-full p-4 border rounded-xl bg-white" value={formData.category_id} onChange={handleInputChange}>
-                    <option value="">Select Category</option>
-                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                  <input type="text" name="service_type" placeholder="Service Type" className="w-full p-4 border rounded-xl" value={formData.service_type} onChange={handleInputChange} />
-                  <input type="number" name="experience" placeholder="Experience (years)" className="w-full p-4 border rounded-xl" value={formData.experience} onChange={handleInputChange} />
-                </div>
-              </motion.div>
-            )}
-            {step === 3 && (
-              <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-                <h2 className="text-2xl font-bold mb-6">Address Details</h2>
-                <div className="space-y-4">
-                  <input type="text" name="address" placeholder="Address" className="w-full p-4 border rounded-xl" value={formData.address} onChange={handleInputChange} />
-                  <input type="text" name="city" placeholder="City" className="w-full p-4 border rounded-xl" value={formData.city} onChange={handleInputChange} />
-                  <input type="text" name="pincode" placeholder="Pincode" className="w-full p-4 border rounded-xl" value={formData.pincode} onChange={handleInputChange} />
-                </div>
-              </motion.div>
-            )}
-            {step === 4 && (
-              <motion.div key="step4" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-                <h2 className="text-2xl font-bold mb-6">Documents</h2>
-                <div className="space-y-4">
-                  <label className="block p-8 border-2 border-dashed rounded-xl text-center cursor-pointer hover:border-yellow-500">
-                    <Upload className="mx-auto mb-2" /> Upload ID Proof (PDF/Image)
-                    <input type="file" className="hidden" />
-                  </label>
-                  <label className="block p-8 border-2 border-dashed rounded-xl text-center cursor-pointer hover:border-yellow-500">
-                    <Upload className="mx-auto mb-2" /> Upload Profile Photo
-                    <input type="file" className="hidden" />
-                  </label>
-                </div>
-              </motion.div>
-            )}
-            {step === 5 && (
-              <motion.div key="step5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-                <h2 className="text-2xl font-bold mb-6">Availability</h2>
-                <div className="space-y-4">
-                  <p className="font-bold">Select Working Days</p>
-                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-                    <label key={day} className="flex items-center gap-2">
-                      <input type="checkbox" onChange={e => setFormData({...formData, working_days: e.target.checked ? [...formData.working_days, day] : formData.working_days.filter(d => d !== day)})} /> {day}
-                    </label>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+        {/* Form Container */}
+        <div className="bg-white rounded-[2rem] shadow-2xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
+          <div className="p-8 sm:p-12">
+            <AnimatePresence mode="wait">
+              {step === 1 && (
+                <motion.div 
+                  key="step1" 
+                  initial={{ opacity: 0, x: 20 }} 
+                  animate={{ opacity: 1, x: 0 }} 
+                  exit={{ opacity: 0, x: -20 }}
+                  className="space-y-6"
+                >
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Basic Details</h2>
+                    <p className="text-gray-500 text-sm">Tell us who you are</p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="relative">
+                      <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                      <input type="text" name="name" placeholder="Full Name" className="w-full pl-12 pr-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-yellow-500 transition-all" value={formData.name} onChange={handleInputChange} />
+                    </div>
+                    <div className="relative">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                      <input type="email" name="email" placeholder="Email Address" className="w-full pl-12 pr-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-yellow-500 transition-all" value={formData.email} onChange={handleInputChange} />
+                    </div>
+                    <div className="relative">
+                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                      <input type="tel" name="phone" placeholder="Phone Number" className="w-full pl-12 pr-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-yellow-500 transition-all" value={formData.phone} onChange={handleInputChange} />
+                    </div>
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                      <input type="password" name="password" placeholder="Create Password" className="w-full pl-12 pr-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-yellow-500 transition-all" value={formData.password} onChange={handleInputChange} />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
 
-          {/* Navigation */}
-          <div className="flex justify-between mt-8 pt-6 border-t">
-            <button onClick={prevStep} disabled={step === 1} className="px-6 py-3 border rounded-xl font-bold disabled:opacity-50">Previous</button>
-            {step < 5 ? (
-              <button onClick={nextStep} className="px-6 py-3 bg-black text-white rounded-xl font-bold">Next</button>
-            ) : (
-              <button onClick={handleSubmit} disabled={loading} className="px-6 py-3 bg-yellow-500 text-black rounded-xl font-bold">
-                {loading ? <Loader2 className="animate-spin" /> : 'Submit'}
+              {step === 2 && (
+                <motion.div 
+                  key="step2" 
+                  initial={{ opacity: 0, x: 20 }} 
+                  animate={{ opacity: 1, x: 0 }} 
+                  exit={{ opacity: 0, x: -20 }}
+                  className="space-y-6"
+                >
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Professional Details</h2>
+                    <p className="text-gray-500 text-sm">What services do you offer?</p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="relative">
+                      <Wrench className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                      <select name="category_id" className="w-full pl-12 pr-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-yellow-500 transition-all appearance-none" value={formData.category_id} onChange={handleInputChange}>
+                        <option value="">Select Category</option>
+                        {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="relative">
+                      <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                      <input type="text" name="service_type" placeholder="Specific Service (e.g. Kitchen Plumbing)" className="w-full pl-12 pr-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-yellow-500 transition-all" value={formData.service_type} onChange={handleInputChange} />
+                    </div>
+                    <div className="relative">
+                      <Star className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                      <input type="number" name="experience" placeholder="Years of Experience" className="w-full pl-12 pr-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-yellow-500 transition-all" value={formData.experience} onChange={handleInputChange} />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {step === 3 && (
+                <motion.div 
+                  key="step3" 
+                  initial={{ opacity: 0, x: 20 }} 
+                  animate={{ opacity: 1, x: 0 }} 
+                  exit={{ opacity: 0, x: -20 }}
+                  className="space-y-6"
+                >
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Address Details</h2>
+                    <p className="text-gray-500 text-sm">Where are you located?</p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="relative">
+                      <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                      <input type="text" name="address" placeholder="Full Address" className="w-full pl-12 pr-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-yellow-500 transition-all" value={formData.address} onChange={handleInputChange} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <input type="text" name="city" placeholder="City" className="w-full px-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-yellow-500 transition-all" value={formData.city} onChange={handleInputChange} />
+                      <input type="text" name="pincode" placeholder="Pincode" className="w-full px-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-yellow-500 transition-all" value={formData.pincode} onChange={handleInputChange} />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {step === 4 && (
+                <motion.div 
+                  key="step4" 
+                  initial={{ opacity: 0, x: 20 }} 
+                  animate={{ opacity: 1, x: 0 }} 
+                  exit={{ opacity: 0, x: -20 }}
+                  className="space-y-6"
+                >
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Documents</h2>
+                    <p className="text-gray-500 text-sm">Verification is required for trust</p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <label className="group relative flex flex-col items-center justify-center p-10 border-2 border-dashed border-gray-200 rounded-[2rem] cursor-pointer hover:border-yellow-500 hover:bg-yellow-50/30 transition-all">
+                      <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-yellow-100 group-hover:scale-110 transition-all">
+                        <Upload className="text-gray-400 group-hover:text-yellow-600" size={24} />
+                      </div>
+                      <span className="text-sm font-bold text-gray-600">ID Proof</span>
+                      <span className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest">PDF or Image</span>
+                      <input type="file" className="hidden" />
+                    </label>
+                    <label className="group relative flex flex-col items-center justify-center p-10 border-2 border-dashed border-gray-200 rounded-[2rem] cursor-pointer hover:border-yellow-500 hover:bg-yellow-50/30 transition-all">
+                      <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-yellow-100 group-hover:scale-110 transition-all">
+                        <User className="text-gray-400 group-hover:text-yellow-600" size={24} />
+                      </div>
+                      <span className="text-sm font-bold text-gray-600">Profile Photo</span>
+                      <span className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest">JPG or PNG</span>
+                      <input type="file" className="hidden" />
+                    </label>
+                  </div>
+                </motion.div>
+              )}
+
+              {step === 5 && (
+                <motion.div 
+                  key="step5" 
+                  initial={{ opacity: 0, x: 20 }} 
+                  animate={{ opacity: 1, x: 0 }} 
+                  exit={{ opacity: 0, x: -20 }}
+                  className="space-y-8"
+                >
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Availability</h2>
+                    <p className="text-gray-500 text-sm">When can you work?</p>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <p className="text-sm font-bold text-gray-700 uppercase tracking-widest">Working Days</p>
+                    <div className="flex flex-wrap gap-3">
+                      {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+                        <label key={day} className="cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="hidden peer"
+                            checked={formData.working_days.includes(day)}
+                            onChange={e => setFormData({
+                              ...formData, 
+                              working_days: e.target.checked 
+                                ? [...formData.working_days, day] 
+                                : formData.working_days.filter(d => d !== day)
+                            })} 
+                          />
+                          <div className="px-5 py-3 rounded-xl border-2 border-gray-100 font-bold text-sm peer-checked:bg-yellow-500 peer-checked:border-yellow-500 peer-checked:text-black transition-all">
+                            {day}
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <p className="text-sm font-bold text-gray-700 uppercase tracking-widest">Time Slots</p>
+                    <div className="relative">
+                      <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                      <select 
+                        name="time_slots" 
+                        className="w-full pl-12 pr-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-yellow-500 transition-all appearance-none"
+                        value={formData.time_slots}
+                        onChange={handleInputChange}
+                      >
+                        <option value="09:00 AM - 06:00 PM">09:00 AM - 06:00 PM (Standard)</option>
+                        <option value="08:00 AM - 08:00 PM">08:00 AM - 08:00 PM (Extended)</option>
+                        <option value="10:00 AM - 04:00 PM">10:00 AM - 04:00 PM (Short)</option>
+                        <option value="24x7">24x7 Emergency</option>
+                      </select>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Navigation */}
+            <div className="flex justify-between mt-12 pt-8 border-t border-gray-100">
+              <button 
+                onClick={prevStep} 
+                disabled={step === 1} 
+                className="flex items-center px-8 py-4 border-2 border-gray-100 rounded-2xl font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-30 transition-all"
+              >
+                <ArrowLeft className="mr-2" size={18} />
+                Back
               </button>
-            )}
+              
+              {step < 5 ? (
+                <button 
+                  onClick={nextStep} 
+                  className="flex items-center px-10 py-4 bg-black text-white rounded-2xl font-bold hover:bg-gray-800 transition-all shadow-xl shadow-gray-200"
+                >
+                  Continue
+                  <ArrowRight className="ml-2" size={18} />
+                </button>
+              ) : (
+                <button 
+                  onClick={handleSubmit} 
+                  disabled={loading} 
+                  className="flex items-center px-10 py-4 bg-yellow-500 text-black rounded-2xl font-bold hover:bg-yellow-600 transition-all shadow-xl shadow-yellow-500/20"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="animate-spin mr-2" size={18} />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      Complete Registration
+                      <CheckCircle className="ml-2" size={18} />
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

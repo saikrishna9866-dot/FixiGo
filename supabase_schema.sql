@@ -1,8 +1,10 @@
 -- 1. Create categories table
 CREATE TABLE IF NOT EXISTS users_profile (
-  id TEXT PRIMARY KEY,
+  id UUID PRIMARY KEY,
   email TEXT NOT NULL UNIQUE,
-  password TEXT,
+  full_name TEXT,
+  phone TEXT,
+  address TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 

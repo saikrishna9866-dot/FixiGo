@@ -12,7 +12,13 @@ if (!supabaseServiceKey) {
 
 export const supabaseAdmin = createClient(
   supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseServiceKey || 'placeholder'
+  supabaseServiceKey || 'placeholder',
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
 );
 
 export const isSupabaseAdminConfigured = !!(supabaseUrl && supabaseServiceKey && supabaseServiceKey !== 'placeholder');

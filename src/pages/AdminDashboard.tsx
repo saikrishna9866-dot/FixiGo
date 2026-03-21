@@ -22,10 +22,23 @@ import {
   X,
   Loader2
 } from 'lucide-react';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  AreaChart,
+  Area
+} from 'recharts';
 import { toast } from 'sonner';
 import { formatDate, cn } from '../lib/utils';
-
 import { seedDatabase, clearDatabase } from '../lib/seed';
+
+import { StatsGrid } from '../components/admin/StatsGrid';
+import { ConfigurationDebugger } from '../components/admin/ConfigurationDebugger';
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -37,8 +50,12 @@ export const AdminDashboard: React.FC = () => {
     users: 0,
     providers: 0,
     bookings: 0,
-    activeJobs: 0
+    activeJobs: 0,
+    revenue: 0
   });
+
+  // Chart data
+  const [chartData, setChartData] = useState<any[]>([]);
 
   // Data states
   const [categories, setCategories] = useState<any[]>([]);
@@ -54,6 +71,32 @@ export const AdminDashboard: React.FC = () => {
   const [formData, setFormData] = useState<any>({});
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
 
+  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+  const [testError, setTestError] = useState<string | null>(null);
+
+  const testConnection = async () => {
+    setTestStatus('testing');
+    setTestError(null);
+    try {
+      const client = isSupabaseAdminConfigured ? supabaseAdmin : supabase;
+      // Try to select a single row from categories (or just check if we can reach the server)
+      const { data, error } = await client.from('categories').select('count', { count: 'exact', head: true });
+      
+      if (error) {
+        setTestStatus('error');
+        setTestError(`${error.message} (Code: ${error.code})`);
+        toast.error(`Connection failed: ${error.message}`);
+      } else {
+        setTestStatus('success');
+        toast.success('Successfully connected to Supabase!');
+      }
+    } catch (err: any) {
+      setTestStatus('error');
+      setTestError(err.message || 'Unknown error');
+      toast.error(`Connection error: ${err.message}`);
+    }
+  };
+
   useEffect(() => {
     const isAdmin = localStorage.getItem('admin_session') === 'true';
     if (!isAdmin) {
@@ -61,6 +104,7 @@ export const AdminDashboard: React.FC = () => {
       return;
     }
     fetchAllData();
+    testConnection();
 
     // Set up real-time subscriptions
     const channels = [
@@ -98,10 +142,36 @@ export const AdminDashboard: React.FC = () => {
         users: userRes.data?.length || 0,
         providers: provRes.data?.length || 0,
         bookings: bookRes.data?.length || 0,
-        activeJobs: bookRes.data?.filter(b => b.status === 'accepted').length || 0
+        activeJobs: bookRes.data?.filter(b => b.status === 'accepted').length || 0,
+        revenue: bookRes.data?.reduce((acc, b) => acc + (Number(b.total_price) || 0), 0) || 0
       });
-    } catch (error) {
-      toast.error('Failed to fetch dashboard data');
+
+      // Generate chart data from bookings
+      const last7Days = [...Array(7)].map((_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        return d.toISOString().split('T')[0];
+      }).reverse();
+
+      const chart = last7Days.map(date => {
+        const dayBookings = bookRes.data?.filter(b => b.created_at.startsWith(date)) || [];
+        return {
+          date: new Date(date).toLocaleDateString('en-US', { weekday: 'short' }),
+          bookings: dayBookings.length,
+          revenue: dayBookings.reduce((acc, b) => acc + (Number(b.total_price) || 0), 0)
+        };
+      });
+      setChartData(chart);
+
+      // Check for individual errors
+      const errors = [catRes, serRes, userRes, provRes, bookRes].filter(r => r.error).map(r => r.error?.message);
+      if (errors.length > 0) {
+        console.error('Some data failed to fetch:', errors);
+        toast.error(`Partial data fetch failure: ${errors[0]}`);
+      }
+    } catch (error: any) {
+      console.error('Error fetching dashboard data:', error);
+      toast.error('Failed to fetch dashboard data: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -118,18 +188,43 @@ export const AdminDashboard: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Basic validation
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file');
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Image size must be less than 2MB');
+      return;
+    }
+
     setLoading(true);
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const { data, error } = await supabaseAdmin.storage.from('services').upload(fileName, file);
-      if (error) throw error;
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      
+      // Upload to 'services' bucket
+      const { data, error } = await supabaseAdmin.storage.from('services').upload(fileName, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+      
+      if (error) {
+        console.error('Upload error details:', error);
+        throw error;
+      }
 
       const { data: urlData } = supabase.storage.from('services').getPublicUrl(data.path);
       setFormData((prev: any) => ({ ...prev, image_url: urlData.publicUrl }));
       toast.success('Image uploaded successfully');
     } catch (error: any) {
-      toast.error('Failed to upload image: ' + error.message);
+      console.error('Full upload error:', error);
+      toast.error('Failed to upload image: ' + (error.message || 'Unknown error'));
+      
+      if (error.message?.includes('row-level security')) {
+        toast.info('Please run the SQL script in the debugger to enable storage permissions.');
+      }
     } finally {
       setLoading(false);
     }
@@ -253,6 +348,18 @@ export const AdminDashboard: React.FC = () => {
             <p className="text-gray-400">Manage your platform data and operations</p>
           </div>
           <div className="flex items-center space-x-4">
+            <div className={`flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-bold border ${
+              testStatus === 'success' ? 'bg-green-900/20 text-green-500 border-green-900/30' : 
+              testStatus === 'error' ? 'bg-red-900/20 text-red-500 border-red-900/30' : 
+              'bg-gray-800 text-gray-400 border-gray-700'
+            }`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${
+                testStatus === 'success' ? 'bg-green-500 animate-pulse' : 
+                testStatus === 'error' ? 'bg-red-500' : 
+                'bg-gray-500'
+              }`} />
+              <span>{testStatus === 'success' ? 'CONNECTED' : testStatus === 'error' ? 'CONNECTION FAILED' : 'NOT TESTED'}</span>
+            </div>
             <button
               onClick={async () => {
                 if (!isSupabaseAdminConfigured) {
@@ -324,53 +431,65 @@ export const AdminDashboard: React.FC = () => {
               exit={{ opacity: 0, y: -20 }}
               className="space-y-10"
             >
-              {/* Debug Config Section */}
-      <div className="mb-8 bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
-        <h2 className="text-lg font-bold mb-4 flex items-center text-yellow-500">
-          <Loader2 className="mr-2" size={20} />
-          Configuration Debugger
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div className="space-y-2">
-            <p className="text-gray-400">Supabase URL:</p>
-            <code className="bg-black/50 p-2 rounded block border border-gray-800">
-              {import.meta.env.VITE_SUPABASE_URL ? `${import.meta.env.VITE_SUPABASE_URL.substring(0, 20)}...` : '❌ MISSING'}
-            </code>
-          </div>
-          <div className="space-y-2">
-            <p className="text-gray-400">Service Role Key (Admin):</p>
-            <code className="bg-black/50 p-2 rounded block border border-gray-800">
-              {import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY && import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY !== 'your-service-role-key' 
-                ? `${import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY.substring(0, 8)}... (Length: ${import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY.length})` 
-                : '❌ MISSING OR PLACEHOLDER'}
-            </code>
-          </div>
-        </div>
-        {!isSupabaseAdminConfigured && (
-          <p className="mt-4 text-red-400 text-xs italic">
-            * Note: If the key is missing above, ensure you added it to the Secrets panel with the "VITE_" prefix and restarted the server.
-          </p>
-        )}
-      </div>
+              <ConfigurationDebugger
+                supabaseUrl={import.meta.env.VITE_SUPABASE_URL || ''}
+                supabaseAnonKey={import.meta.env.VITE_SUPABASE_ANON_KEY || ''}
+                supabaseServiceRoleKey={import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || ''}
+                testConnection={testConnection}
+                isTesting={testStatus === 'testing'}
+                connectionStatus={testStatus === 'success' ? 'success' : testStatus === 'error' ? 'error' : 'idle'}
+              />
 
-      {/* Stats Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {[
-                  { label: 'Total Users', value: stats.users, icon: Users, color: 'text-white' },
-                  { label: 'Service Providers', value: stats.providers, icon: HardHat, color: 'text-yellow-500' },
-                  { label: 'Total Bookings', value: stats.bookings, icon: ShoppingBag, color: 'text-red-500' },
-                  { label: 'Active Jobs', value: stats.activeJobs, icon: TrendingUp, color: 'text-yellow-400' },
-                ].map((stat, idx) => (
-                  <div key={idx} className="bg-gray-900 p-6 rounded-3xl border border-gray-800 shadow-xl">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className={cn("p-3 rounded-2xl bg-gray-800", stat.color)}>
-                        <stat.icon size={24} />
-                      </div>
-                    </div>
-                    <h3 className="text-3xl font-bold mb-1">{stat.value}</h3>
-                    <p className="text-gray-400 text-sm font-medium">{stat.label}</p>
+              <StatsGrid stats={{
+                totalUsers: stats.users,
+                totalProviders: stats.providers,
+                totalBookings: stats.bookings,
+                totalRevenue: stats.revenue
+              }} />
+
+              {/* Charts Section */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="bg-gray-900 p-8 rounded-3xl border border-gray-800 shadow-xl">
+                  <h3 className="text-lg font-bold mb-6">Booking Activity</h3>
+                  <div className="h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={chartData}>
+                        <defs>
+                          <linearGradient id="colorBookings" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#EAB308" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="#EAB308" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                        <XAxis dataKey="date" stroke="#9CA3AF" fontSize={12} tickLine={false} axisLine={false} />
+                        <YAxis stroke="#9CA3AF" fontSize={12} tickLine={false} axisLine={false} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '12px' }}
+                          itemStyle={{ color: '#EAB308' }}
+                        />
+                        <Area type="monotone" dataKey="bookings" stroke="#EAB308" fillOpacity={1} fill="url(#colorBookings)" strokeWidth={3} />
+                      </AreaChart>
+                    </ResponsiveContainer>
                   </div>
-                ))}
+                </div>
+
+                <div className="bg-gray-900 p-8 rounded-3xl border border-gray-800 shadow-xl">
+                  <h3 className="text-lg font-bold mb-6">Revenue Growth</h3>
+                  <div className="h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                        <XAxis dataKey="date" stroke="#9CA3AF" fontSize={12} tickLine={false} axisLine={false} />
+                        <YAxis stroke="#9CA3AF" fontSize={12} tickLine={false} axisLine={false} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '12px' }}
+                          itemStyle={{ color: '#A855F7' }}
+                        />
+                        <Line type="monotone" dataKey="revenue" stroke="#A855F7" strokeWidth={3} dot={{ r: 4, fill: '#A855F7' }} activeDot={{ r: 6 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
               </div>
 
               {/* Recent Bookings Table */}
@@ -500,21 +619,34 @@ export const AdminDashboard: React.FC = () => {
 
           {activeTab === 'users' && (
             <motion.div key="users" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <div className="bg-gray-900 rounded-3xl border border-gray-800 overflow-hidden">
+              <div className="bg-gray-900 rounded-3xl border border-gray-800 overflow-hidden shadow-xl">
                 <table className="w-full text-left">
                   <thead className="bg-gray-800/50 text-gray-400 text-xs uppercase tracking-widest">
                     <tr>
-                      <th className="px-6 py-4">Email</th>
-                      <th className="px-6 py-4">Password</th>
+                      <th className="px-6 py-4">User</th>
+                      <th className="px-6 py-4">Full Name</th>
                       <th className="px-6 py-4">Joined Date</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-800">
                     {users.map((user) => (
                       <tr key={user.id} className="hover:bg-gray-800/30 transition-colors">
-                        <td className="px-6 py-4 font-medium">{user.email}</td>
-                        <td className="px-6 py-4 text-sm font-mono text-yellow-500">{user.password || 'N/A'}</td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 font-bold text-xs">
+                              {user.email?.[0].toUpperCase()}
+                            </div>
+                            <span className="font-medium">{user.email}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-300">{user.full_name || 'N/A'}</td>
                         <td className="px-6 py-4 text-sm text-gray-400">{formatDate(user.created_at)}</td>
+                        <td className="px-6 py-4 text-right">
+                          <button onClick={() => handleDelete(user.id, 'users_profile')} className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -525,21 +657,44 @@ export const AdminDashboard: React.FC = () => {
 
           {activeTab === 'providers' && (
             <motion.div key="providers" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <div className="bg-gray-900 rounded-3xl border border-gray-800 overflow-hidden">
+              <div className="bg-gray-900 rounded-3xl border border-gray-800 overflow-hidden shadow-xl">
                 <table className="w-full text-left">
                   <thead className="bg-gray-800/50 text-gray-400 text-xs uppercase tracking-widest">
                     <tr>
-                      <th className="px-6 py-4">Name</th>
-                      <th className="px-6 py-4">Email</th>
-                      <th className="px-6 py-4">Assigned Service</th>
+                      <th className="px-6 py-4">Provider</th>
+                      <th className="px-6 py-4">Contact</th>
+                      <th className="px-6 py-4">Specialization</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-800">
                     {providers.map((prov) => (
                       <tr key={prov.id} className="hover:bg-gray-800/30 transition-colors">
-                        <td className="px-6 py-4 font-bold">{prov.name}</td>
-                        <td className="px-6 py-4 text-sm text-gray-400">{prov.email}</td>
-                        <td className="px-6 py-4"><span className="bg-yellow-500/10 text-yellow-500 px-3 py-1 rounded-full text-xs">{prov.services?.title}</span></td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center text-yellow-500 font-bold">
+                              {prov.name?.[0]}
+                            </div>
+                            <div>
+                              <p className="font-bold">{prov.name}</p>
+                              <p className="text-xs text-gray-500">{prov.experience} exp.</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm text-gray-300">{prov.email}</p>
+                          <p className="text-xs text-gray-500">{prov.phone}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="bg-yellow-500/10 text-yellow-500 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-yellow-500/20">
+                            {prov.services?.title}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button onClick={() => handleDelete(prov.id, 'service_providers')} className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -612,7 +767,93 @@ export const AdminDashboard: React.FC = () => {
         </AnimatePresence>
       </main>
 
-      {/* Modal */}
+      {/* Booking View Modal */}
+      <AnimatePresence>
+        {selectedBooking && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedBooking(null)}
+              className="absolute inset-0 bg-black/90 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-2xl bg-gray-900 rounded-[40px] border border-gray-800 shadow-2xl overflow-hidden"
+            >
+              <div className="p-10">
+                <div className="flex justify-between items-start mb-10">
+                  <div>
+                    <span className={cn(
+                      "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border mb-4 inline-block",
+                      selectedBooking.status === 'completed' ? "bg-red-500/10 text-red-500 border-red-500/20" :
+                      selectedBooking.status === 'accepted' ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/20" :
+                      "bg-blue-500/10 text-blue-500 border-blue-500/20"
+                    )}>
+                      {selectedBooking.status}
+                    </span>
+                    <h3 className="text-3xl font-black tracking-tight">Booking Details</h3>
+                    <p className="text-gray-500 mt-1 font-medium">ID: {selectedBooking.id.substring(0, 8)}...</p>
+                  </div>
+                  <button onClick={() => setSelectedBooking(null)} className="p-3 bg-gray-800 rounded-2xl text-gray-400 hover:text-white transition-all">
+                    <X size={24} />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-10">
+                  <div className="space-y-8">
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Service</p>
+                      <p className="text-xl font-bold text-yellow-500">{selectedBooking.services?.title}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Customer</p>
+                      <p className="text-lg font-medium">{selectedBooking.users_profile?.email}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Location</p>
+                      <p className="text-sm text-gray-300 leading-relaxed">
+                        {selectedBooking.address}<br />
+                        {selectedBooking.city}, {selectedBooking.pincode}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-8">
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Provider</p>
+                      <p className="text-lg font-bold">{selectedBooking.service_providers?.name || 'Unassigned'}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Schedule</p>
+                      <div className="flex items-center space-x-3 text-gray-300">
+                        <Clock size={16} className="text-yellow-500" />
+                        <span className="font-bold">{selectedBooking.booking_date}</span>
+                        <span className="text-gray-600">|</span>
+                        <span>{selectedBooking.booking_time}</span>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Total Price</p>
+                      <p className="text-3xl font-black text-white">₹{selectedBooking.total_price}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {selectedBooking.problem_description && (
+                  <div className="mt-10 p-6 bg-gray-800/50 rounded-3xl border border-gray-800">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-3">Problem Description</p>
+                    <p className="text-sm text-gray-300 italic leading-relaxed">"{selectedBooking.problem_description}"</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
