@@ -1,20 +1,28 @@
--- 1. Create categories table
+-- 1. Create users_profile table
 CREATE TABLE IF NOT EXISTS users_profile (
   id UUID PRIMARY KEY,
   email TEXT NOT NULL UNIQUE,
   full_name TEXT,
   phone TEXT,
   address TEXT,
+  avatar_url TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- Ensure columns exist for users_profile
+ALTER TABLE users_profile ADD COLUMN IF NOT EXISTS full_name TEXT;
+ALTER TABLE users_profile ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE users_profile ADD COLUMN IF NOT EXISTS address TEXT;
+ALTER TABLE users_profile ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+
+-- 2. Create categories table
 CREATE TABLE IF NOT EXISTS categories (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 2. Create services table
+-- 3. Create services table
 CREATE TABLE IF NOT EXISTS services (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   category_id UUID REFERENCES categories(id) ON DELETE CASCADE,
@@ -24,11 +32,55 @@ CREATE TABLE IF NOT EXISTS services (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Ensure new columns exist if the table was already created previously
+-- Ensure columns exist for services
 ALTER TABLE services ADD COLUMN IF NOT EXISTS description TEXT;
 ALTER TABLE services ADD COLUMN IF NOT EXISTS image_url TEXT;
 
--- Ensure new columns exist for bookings table
+-- 4. Create service_providers table
+CREATE TABLE IF NOT EXISTS service_providers (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users_profile(id) ON DELETE CASCADE,
+  service_id UUID REFERENCES services(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone TEXT,
+  experience TEXT DEFAULT '3 years',
+  address TEXT,
+  rating NUMERIC DEFAULT 4.5,
+  availability JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Ensure columns exist for service_providers
+ALTER TABLE service_providers ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users_profile(id) ON DELETE CASCADE;
+ALTER TABLE service_providers ADD COLUMN IF NOT EXISTS rating NUMERIC DEFAULT 4.5;
+ALTER TABLE service_providers ADD COLUMN IF NOT EXISTS experience TEXT DEFAULT '3 years';
+ALTER TABLE service_providers ADD COLUMN IF NOT EXISTS phone TEXT;
+
+-- 5. Create bookings table
+CREATE TABLE IF NOT EXISTS bookings (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  service_id UUID REFERENCES services(id) ON DELETE CASCADE,
+  provider_id UUID REFERENCES service_providers(id) ON DELETE SET NULL,
+  user_id UUID REFERENCES users_profile(id) ON DELETE CASCADE,
+  status TEXT DEFAULT 'pending',
+  address TEXT NOT NULL,
+  city TEXT NOT NULL,
+  pincode TEXT NOT NULL,
+  landmark TEXT,
+  booking_date DATE NOT NULL,
+  booking_time TEXT NOT NULL,
+  problem_description TEXT,
+  service_type TEXT,
+  item_count TEXT,
+  problem_image TEXT,
+  total_price NUMERIC,
+  payment_method TEXT,
+  is_urgent BOOLEAN DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Ensure columns exist for bookings
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS address TEXT;
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS city TEXT;
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS pincode TEXT;
@@ -43,12 +95,7 @@ ALTER TABLE bookings ADD COLUMN IF NOT EXISTS total_price NUMERIC;
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_method TEXT;
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS is_urgent BOOLEAN DEFAULT false;
 
--- Ensure new columns exist for service_providers table
-ALTER TABLE service_providers ADD COLUMN IF NOT EXISTS rating NUMERIC DEFAULT 4.5;
-ALTER TABLE service_providers ADD COLUMN IF NOT EXISTS experience TEXT DEFAULT '3 years';
-ALTER TABLE service_providers ADD COLUMN IF NOT EXISTS phone TEXT;
-
--- 3. Insert Categories
+-- 6. Insert Categories
 INSERT INTO categories (name) VALUES
   ('Home & Repair Services'),
   ('Vehicle Services'),
@@ -58,7 +105,7 @@ INSERT INTO categories (name) VALUES
   ('Emergency Services')
 ON CONFLICT (name) DO NOTHING;
 
--- 4. Insert Services
+-- 7. Insert Services
 -- Note: This uses a subquery to find the correct category_id
 INSERT INTO services (category_id, title, description, image_url)
 SELECT id, 'Plumbing', 'Expert plumbing services for all your home needs.', 'https://images.unsplash.com/photo-1585704032915-c3400ca199e7?q=80&w=800&auto=format&fit=crop' FROM categories WHERE name = 'Home & Repair Services' UNION ALL
@@ -101,10 +148,20 @@ SELECT id, 'Accountants / Tax consultants', 'Expert financial and tax advisory.'
 
 SELECT id, 'Ambulance booking', 'Quick and reliable ambulance services.', 'https://images.unsplash.com/photo-1587559070757-f72a388edbba?q=80&w=800&auto=format&fit=crop' FROM categories WHERE name = 'Emergency Services' UNION ALL
 SELECT id, 'Doctor at home / Telemedicine', 'On-demand medical consultations.', 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?q=80&w=800&auto=format&fit=crop' FROM categories WHERE name = 'Emergency Services' UNION ALL
-SELECT id, 'Locksmiths', 'Emergency lock repair and key duplication.', 'https://images.unsplash.com/photo-1558025137-0b406e9cb1ad?q=80&w=800&auto=format&fit=crop' FROM categories WHERE name = 'Emergency Services' UNION ALL
--- 5. Disable RLS for all tables (Optional, for easier development)
--- ALTER TABLE users_profile DISABLE ROW LEVEL SECURITY;
--- ALTER TABLE categories DISABLE ROW LEVEL SECURITY;
--- ALTER TABLE services DISABLE ROW LEVEL SECURITY;
--- ALTER TABLE service_providers DISABLE ROW LEVEL SECURITY;
--- ALTER TABLE bookings DISABLE ROW LEVEL SECURITY;
+SELECT id, 'Locksmiths', 'Emergency lock repair and key duplication.', 'https://images.unsplash.com/photo-1558025137-0b406e9cb1ad?q=80&w=800&auto=format&fit=crop' FROM categories WHERE name = 'Emergency Services'
+ON CONFLICT (title) DO NOTHING;
+
+-- 8. Disable RLS for all tables (Development Mode)
+ALTER TABLE users_profile DISABLE ROW LEVEL SECURITY;
+ALTER TABLE categories DISABLE ROW LEVEL SECURITY;
+ALTER TABLE services DISABLE ROW LEVEL SECURITY;
+ALTER TABLE service_providers DISABLE ROW LEVEL SECURITY;
+ALTER TABLE bookings DISABLE ROW LEVEL SECURITY;
+
+-- 9. Grant Permissions
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;

@@ -13,16 +13,28 @@ export interface Database {
         Row: {
           id: string
           email: string
+          full_name: string | null
+          phone: string | null
+          address: string | null
+          avatar_url: string | null
           created_at: string
         }
         Insert: {
           id: string
           email: string
+          full_name?: string | null
+          phone?: string | null
+          address?: string | null
+          avatar_url?: string | null
           created_at?: string
         }
         Update: {
           id?: string
           email?: string
+          full_name?: string | null
+          phone?: string | null
+          address?: string | null
+          avatar_url?: string | null
           created_at?: string
         }
       }
@@ -47,18 +59,24 @@ export interface Database {
         Row: {
           id: string
           title: string
+          description: string | null
+          image_url: string | null
           category_id: string
           created_at: string
         }
         Insert: {
           id?: string
           title: string
+          description?: string | null
+          image_url?: string | null
           category_id: string
           created_at?: string
         }
         Update: {
           id?: string
           title?: string
+          description?: string | null
+          image_url?: string | null
           category_id?: string
           created_at?: string
         }
@@ -66,33 +84,42 @@ export interface Database {
       service_providers: {
         Row: {
           id: string
+          user_id: string | null
+          service_id: string | null
           name: string
           email: string
-          service_id: string
+          phone: string | null
+          experience: string | null
+          address: string | null
+          rating: number | null
+          availability: Json | null
           created_at: string
-          rating?: number
-          experience?: string
-          phone?: string
         }
         Insert: {
           id?: string
+          user_id?: string | null
+          service_id?: string | null
           name: string
           email: string
-          service_id: string
+          phone?: string | null
+          experience?: string | null
+          address?: string | null
+          rating?: number | null
+          availability?: Json | null
           created_at?: string
-          rating?: number
-          experience?: string
-          phone?: string
         }
         Update: {
           id?: string
+          user_id?: string | null
+          service_id?: string | null
           name?: string
           email?: string
-          service_id?: string
+          phone?: string | null
+          experience?: string | null
+          address?: string | null
+          rating?: number | null
+          availability?: Json | null
           created_at?: string
-          rating?: number
-          experience?: string
-          phone?: string
         }
       }
       bookings: {

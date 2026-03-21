@@ -3,7 +3,9 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Search, ArrowRight, User, LogOut, Shield, Briefcase, Bell } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
-import { supabase } from '../lib/supabase';
+import { auth, db } from '../firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { toast } from 'sonner';
 
 export const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -32,31 +34,36 @@ export const Navbar: React.FC = () => {
     };
     document.addEventListener('mousedown', handleClickOutside);
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
     });
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
       document.removeEventListener('mousedown', handleClickOutside);
-      subscription.unsubscribe();
+      unsubscribe();
     };
   }, []);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate('/');
-    setIsOpen(false);
+    try {
+      await signOut(auth);
+      toast.success('Logged out successfully');
+      navigate('/');
+      setIsOpen(false);
+    } catch (error: any) {
+      toast.error('Logout failed');
+    }
   };
 
   const fetchServices = async () => {
     try {
-      const { data, error } = await supabase.from('services').select('*, categories(name)');
-      if (!error && data) {
-        setServices(data);
+      const { collection, getDocs, query } = await import('firebase/firestore');
+      const q = query(collection(db, 'services'));
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        setServices(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       } else {
         const { fallbackServices } = await import('../data/fallbackData');
         setServices(fallbackServices);
@@ -185,15 +192,16 @@ export const Navbar: React.FC = () => {
               Become a Pro
             </Link>
 
+            <Link 
+              to="/admin/login" 
+              className="p-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-black hover:text-white transition-all"
+              title="Admin Panel"
+            >
+              <Shield size={20} />
+            </Link>
+
             {user ? (
               <div className="flex items-center space-x-3">
-                <Link
-                  to="/admin/login"
-                  className="p-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-black hover:text-white transition-all"
-                  title="Admin"
-                >
-                  <Shield size={20} />
-                </Link>
                 <button
                   onClick={handleLogout}
                   className="p-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-red-500 hover:text-white transition-all"

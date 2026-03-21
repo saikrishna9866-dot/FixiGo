@@ -1,7 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
-import { supabaseAdmin, isSupabaseAdminConfigured } from '../lib/supabaseAdmin';
+import { db, auth } from '../firebase';
+import { 
+  collection, 
+  getDocs, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  doc, 
+  query, 
+  orderBy, 
+  limit,
+  serverTimestamp
+} from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   LayoutDashboard,
@@ -78,18 +90,11 @@ export const AdminDashboard: React.FC = () => {
     setTestStatus('testing');
     setTestError(null);
     try {
-      const client = isSupabaseAdminConfigured ? supabaseAdmin : supabase;
-      // Try to select a single row from categories (or just check if we can reach the server)
-      const { data, error } = await client.from('categories').select('count', { count: 'exact', head: true });
-      
-      if (error) {
-        setTestStatus('error');
-        setTestError(`${error.message} (Code: ${error.code})`);
-        toast.error(`Connection failed: ${error.message}`);
-      } else {
-        setTestStatus('success');
-        toast.success('Successfully connected to Supabase!');
-      }
+      // Test Firestore connection
+      const testRef = collection(db, 'categories');
+      await getDocs(query(testRef, limit(1)));
+      setTestStatus('success');
+      toast.success('Successfully connected to Firebase!');
     } catch (err: any) {
       setTestStatus('error');
       setTestError(err.message || 'Unknown error');
@@ -105,48 +110,70 @@ export const AdminDashboard: React.FC = () => {
     }
     fetchAllData();
     testConnection();
-
-    // Set up real-time subscriptions
-    const channels = [
-      supabase.channel('categories').on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, fetchAllData).subscribe(),
-      supabase.channel('services').on('postgres_changes', { event: '*', schema: 'public', table: 'services' }, fetchAllData).subscribe(),
-      supabase.channel('users_profile').on('postgres_changes', { event: '*', schema: 'public', table: 'users_profile' }, fetchAllData).subscribe(),
-      supabase.channel('service_providers').on('postgres_changes', { event: '*', schema: 'public', table: 'service_providers' }, fetchAllData).subscribe(),
-      supabase.channel('bookings').on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, fetchAllData).subscribe(),
-    ];
-
-    return () => {
-      channels.forEach(channel => supabase.removeChannel(channel));
-    };
   }, []);
 
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      const client = isSupabaseAdminConfigured ? supabaseAdmin : supabase;
-      const [catRes, serRes, userRes, provRes, bookRes] = await Promise.all([
-        client.from('categories').select('*').order('created_at', { ascending: false }),
-        client.from('services').select('*, categories(name)').order('created_at', { ascending: false }),
-        client.from('users_profile').select('*').order('created_at', { ascending: false }),
-        client.from('service_providers').select('*, services(title)').order('created_at', { ascending: false }),
-        client.from('bookings').select('*, services(title), service_providers(name), users_profile(email)').order('created_at', { ascending: false })
-      ]);
+      // Fetch Categories
+      const categoriesSnap = await getDocs(collection(db, 'categories'));
+      const categoriesData = categoriesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setCategories(categoriesData);
 
-      setCategories(catRes.data || []);
-      setServices(serRes.data || []);
-      setUsers(userRes.data || []);
-      setProviders(provRes.data || []);
-      setBookings(bookRes.data || []);
+      // Fetch Services
+      const servicesSnap = await getDocs(collection(db, 'services'));
+      const servicesData = servicesSnap.docs.map(doc => {
+        const data = doc.data();
+        const category = categoriesData.find(c => c.id === data.category_id);
+        return { id: doc.id, ...data, categories: category };
+      });
+      setServices(servicesData);
+
+      // Fetch Users
+      const usersSnap = await getDocs(collection(db, 'users'));
+      const usersData = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setUsers(usersData);
+
+      // Fetch Providers
+      const providersSnap = await getDocs(collection(db, 'service_providers'));
+      const providersData = providersSnap.docs.map(doc => {
+        const data = doc.data();
+        const service = servicesData.find(s => s.id === data.service_id);
+        return { id: doc.id, ...data, services: service };
+      });
+      setProviders(providersData);
+
+      // Fetch Bookings
+      const bookingsSnap = await getDocs(query(collection(db, 'bookings'), orderBy('created_at', 'desc')));
+      const bookingsData = bookingsSnap.docs.map(doc => {
+        const data = doc.data() as any;
+        const user = usersData.find(u => u.id === data.user_id);
+        const service = servicesData.find(s => s.id === data.service_id);
+        const provider = providersData.find(p => p.id === data.provider_id);
+        return { 
+          id: doc.id, 
+          ...data, 
+          users: user, 
+          services: service, 
+          service_providers: provider 
+        };
+      });
+      setBookings(bookingsData);
+
+      // Calculate Stats
+      const totalRevenue = bookingsData
+        .filter((b: any) => b.status === 'completed')
+        .reduce((sum: number, b: any) => sum + (Number(b.total_price) || 0), 0);
 
       setStats({
-        users: userRes.data?.length || 0,
-        providers: provRes.data?.length || 0,
-        bookings: bookRes.data?.length || 0,
-        activeJobs: bookRes.data?.filter(b => b.status === 'accepted').length || 0,
-        revenue: bookRes.data?.reduce((acc, b) => acc + (Number(b.total_price) || 0), 0) || 0
+        users: usersData.length,
+        providers: providersData.length,
+        bookings: bookingsData.length,
+        activeJobs: bookingsData.filter((b: any) => b.status === 'accepted').length,
+        revenue: totalRevenue
       });
 
-      // Generate chart data from bookings
+      // Generate Chart Data (Last 7 days)
       const last7Days = [...Array(7)].map((_, i) => {
         const d = new Date();
         d.setDate(d.getDate() - i);
@@ -154,21 +181,15 @@ export const AdminDashboard: React.FC = () => {
       }).reverse();
 
       const chart = last7Days.map(date => {
-        const dayBookings = bookRes.data?.filter(b => b.created_at.startsWith(date)) || [];
+        const dayBookings = bookingsData.filter((b: any) => b.created_at?.startsWith(date)) || [];
         return {
           date: new Date(date).toLocaleDateString('en-US', { weekday: 'short' }),
           bookings: dayBookings.length,
-          revenue: dayBookings.reduce((acc, b) => acc + (Number(b.total_price) || 0), 0)
+          revenue: dayBookings.reduce((acc: number, b: any) => acc + (Number(b.total_price) || 0), 0)
         };
       });
       setChartData(chart);
 
-      // Check for individual errors
-      const errors = [catRes, serRes, userRes, provRes, bookRes].filter(r => r.error).map(r => r.error?.message);
-      if (errors.length > 0) {
-        console.error('Some data failed to fetch:', errors);
-        toast.error(`Partial data fetch failure: ${errors[0]}`);
-      }
     } catch (error: any) {
       console.error('Error fetching dashboard data:', error);
       toast.error('Failed to fetch dashboard data: ' + error.message);
@@ -201,30 +222,20 @@ export const AdminDashboard: React.FC = () => {
 
     setLoading(true);
     try {
+      const storage = getStorage();
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `service-images/${fileName}`;
       
-      // Upload to 'services' bucket
-      const { data, error } = await supabaseAdmin.storage.from('services').upload(fileName, file, {
-        cacheControl: '3600',
-        upsert: false
-      });
+      const storageRef = ref(storage, filePath);
+      await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(storageRef);
       
-      if (error) {
-        console.error('Upload error details:', error);
-        throw error;
-      }
-
-      const { data: urlData } = supabase.storage.from('services').getPublicUrl(data.path);
-      setFormData((prev: any) => ({ ...prev, image_url: urlData.publicUrl }));
+      setFormData((prev: any) => ({ ...prev, image_url: downloadURL }));
       toast.success('Image uploaded successfully');
     } catch (error: any) {
       console.error('Full upload error:', error);
       toast.error('Failed to upload image: ' + (error.message || 'Unknown error'));
-      
-      if (error.message?.includes('row-level security')) {
-        toast.info('Please run the SQL script in the debugger to enable storage permissions.');
-      }
     } finally {
       setLoading(false);
     }
@@ -234,37 +245,23 @@ export const AdminDashboard: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      let error;
-      if (modalType === 'category') {
-        if (editingItem) {
-          const { error: err } = await supabaseAdmin.from('categories').update({ name: formData.name }).eq('id', editingItem.id);
-          error = err;
-        } else {
-          const { error: err } = await supabaseAdmin.from('categories').insert({ name: formData.name });
-          error = err;
-        }
-      } else if (modalType === 'service') {
-        const payload = {
-          title: formData.title,
-          category_id: formData.category_id,
-          description: formData.description,
-          image_url: formData.image_url
-        };
-        if (editingItem) {
-          const { error: err } = await supabaseAdmin.from('services').update(payload).eq('id', editingItem.id);
-          error = err;
-        } else {
-          const { error: err } = await supabaseAdmin.from('services').insert(payload);
-          error = err;
-        }
+      const table = modalType === 'category' ? 'categories' : 'services';
+      const data = { ...formData, updated_at: serverTimestamp() };
+      
+      if (editingItem) {
+        const docRef = doc(db, table, editingItem.id);
+        await updateDoc(docRef, data);
+        toast.success(`${modalType} updated`);
+      } else {
+        const collRef = collection(db, table);
+        await addDoc(collRef, { ...data, created_at: serverTimestamp() });
+        toast.success(`${modalType} added`);
       }
-
-      if (error) throw error;
-      toast.success('Saved successfully');
       setIsModalOpen(false);
       fetchAllData();
     } catch (error: any) {
-      toast.error(error.message);
+      console.error('Error saving:', error);
+      toast.error('Failed to save changes: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -273,12 +270,28 @@ export const AdminDashboard: React.FC = () => {
   const handleDelete = async (id: string, table: string) => {
     if (!confirm('Are you sure you want to delete this?')) return;
     try {
-      const { error } = await supabaseAdmin.from(table).delete().eq('id', id);
-      if (error) throw error;
+      const docRef = doc(db, table, id);
+      await deleteDoc(docRef);
       toast.success('Deleted successfully');
       fetchAllData();
     } catch (error: any) {
-      toast.error(error.message);
+      console.error('Error deleting:', error);
+      toast.error('Failed to delete: ' + error.message);
+    }
+  };
+
+  const handleStatusUpdate = async (bookingId: string, newStatus: string) => {
+    try {
+      const docRef = doc(db, 'bookings', bookingId);
+      await updateDoc(docRef, { 
+        status: newStatus,
+        updated_at: serverTimestamp()
+      });
+      toast.success('Status updated');
+      fetchAllData();
+    } catch (error: any) {
+      console.error('Error updating status:', error);
+      toast.error('Failed to update status: ' + error.message);
     }
   };
 
@@ -362,16 +375,6 @@ export const AdminDashboard: React.FC = () => {
             </div>
             <button
               onClick={async () => {
-                if (!isSupabaseAdminConfigured) {
-                  toast.error('Admin configuration missing. Please check VITE_SUPABASE_SERVICE_ROLE_KEY in Settings and restart the server.');
-                  return;
-                }
-                const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-                const serviceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-                if (anonKey === serviceKey || serviceKey === 'your-service-role-key') {
-                  toast.error('Service Role Key is invalid! Please use the correct service_role key from Supabase settings.');
-                  return;
-                }
                 if (!confirm('Are you sure you want to clear ALL data? This cannot be undone.')) return;
                 setClearing(true);
                 const result = await clearDatabase();
@@ -390,16 +393,6 @@ export const AdminDashboard: React.FC = () => {
             </button>
             <button
               onClick={async () => {
-                if (!isSupabaseAdminConfigured) {
-                  toast.error('Admin configuration missing. Please check VITE_SUPABASE_SERVICE_ROLE_KEY in Settings and restart the server.');
-                  return;
-                }
-                const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-                const serviceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-                if (anonKey === serviceKey || serviceKey === 'your-service-role-key') {
-                  toast.error('Service Role Key is invalid! Please use the correct service_role key from Supabase settings.');
-                  return;
-                }
                 setSeeding(true);
                 const result = await seedDatabase();
                 setSeeding(false);
@@ -432,9 +425,6 @@ export const AdminDashboard: React.FC = () => {
               className="space-y-10"
             >
               <ConfigurationDebugger
-                supabaseUrl={import.meta.env.VITE_SUPABASE_URL || ''}
-                supabaseAnonKey={import.meta.env.VITE_SUPABASE_ANON_KEY || ''}
-                supabaseServiceRoleKey={import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || ''}
                 testConnection={testConnection}
                 isTesting={testStatus === 'testing'}
                 connectionStatus={testStatus === 'success' ? 'success' : testStatus === 'error' ? 'error' : 'idle'}
@@ -643,7 +633,7 @@ export const AdminDashboard: React.FC = () => {
                         <td className="px-6 py-4 text-sm text-gray-300">{user.full_name || 'N/A'}</td>
                         <td className="px-6 py-4 text-sm text-gray-400">{formatDate(user.created_at)}</td>
                         <td className="px-6 py-4 text-right">
-                          <button onClick={() => handleDelete(user.id, 'users_profile')} className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                          <button onClick={() => handleDelete(user.id, 'users')} className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
                             <Trash2 size={16} />
                           </button>
                         </td>
@@ -721,20 +711,13 @@ export const AdminDashboard: React.FC = () => {
                     <tbody className="divide-y divide-gray-800">
                       {bookings.map((booking) => (
                         <tr key={booking.id} className="hover:bg-gray-800/30 transition-colors">
-                          <td className="px-6 py-4 text-sm">{booking.users_profile?.email}</td>
+                          <td className="px-6 py-4 text-sm">{booking.users?.email}</td>
                           <td className="px-6 py-4 text-sm font-bold">{booking.services?.title}</td>
                           <td className="px-6 py-4 text-sm">{booking.service_providers?.name}</td>
                           <td className="px-6 py-4">
                             <select
                               value={booking.status}
-                              onChange={async (e) => {
-                                const newStatus = e.target.value;
-                                const { error } = await supabaseAdmin.from('bookings').update({ status: newStatus }).eq('id', booking.id);
-                                if (!error) {
-                                  toast.success('Status updated');
-                                  fetchAllData();
-                                }
-                              }}
+                              onChange={(e) => handleStatusUpdate(booking.id, e.target.value)}
                               className={cn(
                                 "bg-transparent border-none text-[10px] font-bold uppercase tracking-widest focus:ring-0 cursor-pointer",
                                 booking.status === 'completed' ? "text-red-400" :
@@ -811,7 +794,7 @@ export const AdminDashboard: React.FC = () => {
                     </div>
                     <div className="space-y-2">
                       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Customer</p>
-                      <p className="text-lg font-medium">{selectedBooking.users_profile?.email}</p>
+                      <p className="text-lg font-medium">{selectedBooking.users?.email}</p>
                     </div>
                     <div className="space-y-2">
                       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Location</p>

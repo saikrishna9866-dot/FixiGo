@@ -141,6 +141,7 @@ export const Footer: React.FC = () => {
             © {currentYear} FixiGo Services Pvt Ltd. All rights reserved.
           </p>
           <div className="flex space-x-6 text-[10px] font-bold uppercase tracking-widest text-gray-600">
+            <Link to="/admin/login" className="hover:text-yellow-500 transition-colors">Admin Panel</Link>
             <Link to="/privacy" className="hover:text-yellow-500 transition-colors">Privacy</Link>
             <Link to="/terms" className="hover:text-yellow-500 transition-colors">Terms</Link>
             <Link to="/sitemap" className="hover:text-yellow-500 transition-colors">Sitemap</Link>

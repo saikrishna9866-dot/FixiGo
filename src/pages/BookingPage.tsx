@@ -17,6 +17,8 @@ const TIME_SLOTS = [
   '06:00 PM - 08:00 PM'
 ];
 
+import { bookingService } from '../services/bookingService';
+
 export const BookingPage: React.FC = () => {
   const { serviceId } = useParams();
   const navigate = useNavigate();
@@ -53,7 +55,7 @@ export const BookingPage: React.FC = () => {
     if (!serviceId) return;
     
     // Check if serviceId is a valid UUID
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(serviceId);
+    const isUuid = bookingService.isUuid(serviceId || '');
     
     if (!isUuid) {
       // If not a UUID, use fallback data
@@ -175,40 +177,29 @@ export const BookingPage: React.FC = () => {
         return;
       }
 
-      // Calculate price (mock logic)
+      // Ensure user profile exists
+      await bookingService.ensureUserProfile(user);
+
+      // Calculate price
       const basePrice = 499;
       const urgentFee = formData.isUrgent ? 200 : 0;
       const totalPrice = basePrice + urgentFee;
 
-      // Use the selected provider ID directly
-      const actualProviderId = formData.providerId;
-      if (!actualProviderId) {
-        throw new Error('Please select a service provider');
-      }
-
-      const { data, error } = await supabase.from('bookings').insert({
-        user_id: user.id,
-        service_id: serviceId!,
-        provider_id: actualProviderId,
-        status: 'pending',
+      // Submit booking using service
+      const result = await bookingService.createBooking({
+        serviceId: serviceId || '',
+        providerId: formData.providerId,
+        userId: user.id,
         address: formData.address,
         city: formData.city,
         pincode: formData.pincode,
-        landmark: formData.landmark,
-        booking_date: formData.date,
-        booking_time: formData.time,
-        problem_description: formData.description,
-        service_type: formData.serviceType,
-        item_count: formData.itemCount,
-        problem_image: formData.problemImage,
-        total_price: totalPrice,
-        payment_method: formData.paymentMethod,
-        is_urgent: formData.isUrgent
-      }).select().single();
-
-      if (error) throw error;
+        bookingDate: formData.date,
+        bookingTime: formData.time,
+        problemDescription: formData.description,
+        totalPrice: totalPrice
+      });
       
-      setBookingId(data.id);
+      setBookingId(result.id);
       setStep(5); // Confirmation step
       toast.success('Booking confirmed successfully!');
     } catch (error: any) {
@@ -217,6 +208,7 @@ export const BookingPage: React.FC = () => {
       setSubmitting(false);
     }
   };
+
 
   if (loading) {
     return (
@@ -309,13 +301,6 @@ export const BookingPage: React.FC = () => {
                 </h2>
                 
                 <div className="space-y-5">
-                  <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex items-center mb-6">
-                    <ShieldCheck className="text-emerald-600 mr-3" size={20} />
-                    <p className="text-xs text-emerald-800 font-medium">
-                      Your data is सुरक्षित (secure). We use industry-standard encryption to protect your personal information.
-                    </p>
-                  </div>
-                  
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">Full Address *</label>
                     <textarea

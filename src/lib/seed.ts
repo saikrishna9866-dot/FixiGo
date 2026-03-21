@@ -103,6 +103,22 @@ export const seedDatabase = async () => {
     const { data: allProviders } = await supabaseAdmin.from('service_providers').select('*');
     
     if (allProviders && allProviders.length >= 2) {
+      // Create a dummy user profile for mock bookings if it doesn't exist
+      const dummyUserId = '00000000-0000-0000-0000-000000000000';
+      const { data: existingDummy } = await supabaseAdmin
+        .from('users_profile')
+        .select('id')
+        .eq('id', dummyUserId)
+        .single();
+
+      if (!existingDummy) {
+        await supabaseAdmin.from('users_profile').insert({
+          id: dummyUserId,
+          email: 'demo@example.com',
+          full_name: 'Demo User'
+        });
+      }
+
       // Check if we already have bookings to avoid duplicates
       const { data: existingBookings } = await supabaseAdmin.from('bookings').select('id').limit(1);
       
@@ -111,6 +127,7 @@ export const seedDatabase = async () => {
           {
             service_id: serviceMap.get(fallbackServices[0].title),
             provider_id: allProviders[0].id,
+            user_id: dummyUserId,
             status: 'pending',
             address: '101 Demo St',
             city: 'Demo City',
@@ -123,6 +140,7 @@ export const seedDatabase = async () => {
           {
             service_id: serviceMap.get(fallbackServices[1].title),
             provider_id: allProviders[1].id,
+            user_id: dummyUserId,
             status: 'accepted',
             address: '202 Sample Ave',
             city: 'Sample City',

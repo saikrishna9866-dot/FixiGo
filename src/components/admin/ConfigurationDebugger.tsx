@@ -27,6 +27,22 @@ export const ConfigurationDebugger: React.FC<ConfigurationDebuggerProps> = ({
   };
 
   const sqlScript = `-- 1. Create Tables
+CREATE TABLE IF NOT EXISTS users_profile (
+  id UUID PRIMARY KEY,
+  email TEXT UNIQUE NOT NULL,
+  full_name TEXT,
+  phone TEXT,
+  address TEXT,
+  avatar_url TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- Ensure columns exist for users_profile
+ALTER TABLE users_profile ADD COLUMN IF NOT EXISTS full_name TEXT;
+ALTER TABLE users_profile ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE users_profile ADD COLUMN IF NOT EXISTS address TEXT;
+ALTER TABLE users_profile ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+
 CREATE TABLE IF NOT EXISTS categories (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT UNIQUE NOT NULL,
@@ -42,43 +58,64 @@ CREATE TABLE IF NOT EXISTS services (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
+-- Ensure columns exist for services
+ALTER TABLE services ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE services ADD COLUMN IF NOT EXISTS image_url TEXT;
+
 CREATE TABLE IF NOT EXISTS service_providers (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   service_id UUID REFERENCES services(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   email TEXT UNIQUE NOT NULL,
   phone TEXT,
-  experience TEXT,
+  experience TEXT DEFAULT '3 years',
   address TEXT,
+  rating NUMERIC DEFAULT 4.5,
   availability JSONB,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
+
+-- Ensure columns exist for service_providers
+ALTER TABLE service_providers ADD COLUMN IF NOT EXISTS rating NUMERIC DEFAULT 4.5;
+ALTER TABLE service_providers ADD COLUMN IF NOT EXISTS experience TEXT DEFAULT '3 years';
+ALTER TABLE service_providers ADD COLUMN IF NOT EXISTS phone TEXT;
 
 CREATE TABLE IF NOT EXISTS bookings (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   service_id UUID REFERENCES services(id) ON DELETE CASCADE,
   provider_id UUID REFERENCES service_providers(id) ON DELETE SET NULL,
-  user_id UUID,
+  user_id UUID REFERENCES users_profile(id) ON DELETE CASCADE,
   status TEXT DEFAULT 'pending',
   address TEXT NOT NULL,
   city TEXT NOT NULL,
   pincode TEXT NOT NULL,
+  landmark TEXT,
   booking_date DATE NOT NULL,
   booking_time TEXT NOT NULL,
   problem_description TEXT,
-  total_price DECIMAL(10,2),
+  service_type TEXT,
+  item_count TEXT,
+  problem_image TEXT,
+  total_price NUMERIC,
+  payment_method TEXT,
+  is_urgent BOOLEAN DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS users_profile (
-  id UUID PRIMARY KEY,
-  email TEXT UNIQUE NOT NULL,
-  full_name TEXT,
-  phone TEXT,
-  address TEXT,
-  avatar_url TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
-);
+-- Ensure columns exist for bookings
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS address TEXT;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS city TEXT;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS pincode TEXT;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS landmark TEXT;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS booking_date DATE;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS booking_time TEXT;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS problem_description TEXT;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS service_type TEXT;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS item_count TEXT;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS problem_image TEXT;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS total_price NUMERIC;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_method TEXT;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS is_urgent BOOLEAN DEFAULT false;
 
 -- 2. Disable RLS for all tables (Development Mode)
 ALTER TABLE categories DISABLE ROW LEVEL SECURITY;
