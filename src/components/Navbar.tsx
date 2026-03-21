@@ -1,22 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { Menu, X, User, LogOut, Settings, Search, ArrowRight } from 'lucide-react';
+import { Menu, X, Search, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 
 export const Navbar: React.FC = () => {
-  const { user, signOut } = useAuth();
   const [isOpen, setIsOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [services, setServices] = useState<any[]>([]);
   const searchRef = useRef<HTMLDivElement>(null);
+  const [user, setUser] = useState<any>(null);
   
   const location = useLocation();
   const navigate = useNavigate();
-  const isAdminLoggedIn = localStorage.getItem('admin_session') === 'true';
 
   useEffect(() => {
     fetchServices();
@@ -29,6 +27,21 @@ export const Navbar: React.FC = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/');
+  };
 
   const fetchServices = async () => {
     try {
@@ -66,17 +79,19 @@ export const Navbar: React.FC = () => {
     { name: 'Services', path: '/services' },
   ];
 
-  if (user) {
-    navLinks.push({ name: 'Dashboard', path: '/dashboard' });
-  }
-
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center">
-            <Link to="/" className="text-2xl font-bold text-black tracking-tight">
+            <Link to="/" className="text-2xl font-bold text-black tracking-tight mr-6">
               Fixi<span className="text-yellow-500">Go</span>
+            </Link>
+            <Link
+              to="/admin/login"
+              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-100 text-gray-600 hover:bg-yellow-500 hover:text-black transition-all shadow-sm"
+            >
+              Admin
             </Link>
           </div>
 
@@ -142,35 +157,28 @@ export const Navbar: React.FC = () => {
               </Link>
             ))}
             
-            <Link
-              to={isAdminLoggedIn ? "/admin/dashboard" : "/admin/login"}
-              className={cn(
-                "px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm",
-                location.pathname.startsWith('/admin') 
-                  ? "bg-yellow-500 text-black shadow-yellow-500/20" 
-                  : "bg-gray-100 text-gray-600 hover:bg-yellow-500 hover:text-black"
-              )}
-            >
-              {isAdminLoggedIn ? "Admin Dashboard" : "Admin"}
-            </Link>
-
             {user ? (
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => signOut()}
-                  className="flex items-center space-x-2 text-sm font-medium text-gray-600 hover:text-red-600 transition-colors"
-                >
-                  <LogOut size={18} />
-                  <span>Logout</span>
-                </button>
-              </div>
-            ) : (
-              <Link
-                to="/login"
-                className="bg-black text-white px-6 py-2 rounded-full text-sm font-medium hover:bg-gray-800 transition-all shadow-md hover:shadow-lg"
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 rounded-xl text-sm font-bold bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-600 transition-all shadow-sm"
               >
-                Login
-              </Link>
+                Logout
+              </button>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="text-sm font-medium text-gray-600 hover:text-yellow-600 transition-colors"
+                >
+                  Login
+                </Link>
+                <Link
+                  to="/signup"
+                  className="px-4 py-2 rounded-xl text-sm font-bold bg-yellow-500 text-black shadow-sm hover:bg-yellow-600 transition-all"
+                >
+                  Sign Up
+                </Link>
+              </>
             )}
           </div>
 
@@ -212,7 +220,7 @@ export const Navbar: React.FC = () => {
                 </Link>
               ))}
               <Link
-                to={isAdminLoggedIn ? "/admin/dashboard" : "/admin/login"}
+                to="/admin/login"
                 onClick={() => setIsOpen(false)}
                 className={cn(
                   "block px-3 py-3 rounded-xl text-base font-bold mt-2 text-center transition-all",
@@ -221,29 +229,8 @@ export const Navbar: React.FC = () => {
                     : "bg-gray-100 text-gray-600 hover:bg-yellow-500 hover:text-black"
                 )}
               >
-                {isAdminLoggedIn ? "Admin Dashboard" : "Admin"}
+                Admin
               </Link>
-              {!user && (
-                <Link
-                  to="/login"
-                  onClick={() => setIsOpen(false)}
-                  className="block w-full text-center bg-black text-white px-6 py-3 rounded-xl text-base font-medium mt-4"
-                >
-                  Login
-                </Link>
-              )}
-              {user && (
-                <button
-                  onClick={() => {
-                    signOut();
-                    setIsOpen(false);
-                  }}
-                  className="flex items-center space-x-2 w-full px-3 py-2 text-base font-medium text-red-600 hover:bg-red-50 rounded-md mt-4"
-                >
-                  <LogOut size={18} />
-                  <span>Logout</span>
-                </button>
-              )}
             </div>
           </motion.div>
         )}

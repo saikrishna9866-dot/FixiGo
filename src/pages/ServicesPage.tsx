@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../context/AuthContext';
 import { motion } from 'motion/react';
 import { Search, Filter, Star, MapPin, Loader2, ArrowRight, Clock } from 'lucide-react';
 import { toast } from 'sonner';
@@ -10,7 +9,6 @@ import { cn } from '../lib/utils';
 export const ServicesPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const categoryId = searchParams.get('category');
-  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [services, setServices] = useState<any[]>([]);
@@ -63,10 +61,6 @@ export const ServicesPage: React.FC = () => {
   };
 
   const handleBook = (service: any) => {
-    if (!user) {
-      toast.error('Please login to book a service');
-      return;
-    }
     navigate(`/book/${service.id}`);
   };
 

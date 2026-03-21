@@ -3,13 +3,11 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { motion } from 'motion/react';
 import { Search, Star, Clock, ArrowRight, Loader2, AlertCircle, MapPin } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 
 export const SearchResultsPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const query = searchParams.get('q') || '';
-  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [results, setResults] = useState<any[]>([]);
@@ -53,10 +51,6 @@ export const SearchResultsPage: React.FC = () => {
   };
 
   const handleBook = (service: any) => {
-    if (!user) {
-      toast.error('Please login to book a service');
-      return;
-    }
     navigate(`/book/${service.id}`);
   };
 

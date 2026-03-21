@@ -3,7 +3,6 @@ import { Search, MapPin, Star, ShieldCheck, Clock, ArrowRight, Loader2 } from 'l
 import { motion } from 'motion/react';
 import { supabase } from '../lib/supabase';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 
 export const LandingPage: React.FC = () => {
@@ -14,7 +13,6 @@ export const LandingPage: React.FC = () => {
   const [loadingServices, setLoadingServices] = useState(true);
   const [bookingLoading, setBookingLoading] = useState<string | null>(null);
   const navigate = useNavigate();
-  const { user } = useAuth();
 
   useEffect(() => {
     fetchCategories();
@@ -58,10 +56,6 @@ export const LandingPage: React.FC = () => {
   };
 
   const handleBook = (service: any) => {
-    if (!user) {
-      toast.error('Please login to book a service');
-      return;
-    }
     navigate(`/book/${service.id}`);
   };
 
@@ -314,6 +308,22 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
+      {/* For Professionals Section */}
+      <section className="py-24 bg-gray-950 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-4xl font-bold mb-6">For Professionals</h2>
+          <p className="text-gray-400 text-lg mb-10 max-w-2xl mx-auto">
+            Join our network of trusted professionals and grow your business with FixiGo.
+          </p>
+          <Link
+            to="/register-professional"
+            className="inline-block bg-yellow-500 text-black px-8 py-4 rounded-xl font-bold hover:bg-yellow-600 transition-all shadow-lg text-lg"
+          >
+            Register as a Professional
+          </Link>
+        </div>
+      </section>
+      
       {/* Why Choose Us */}
       <section className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

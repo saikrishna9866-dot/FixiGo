@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   MapPin, Calendar, Clock, FileText, User, CreditCard, 
@@ -21,7 +20,6 @@ const TIME_SLOTS = [
 export const BookingPage: React.FC = () => {
   const { serviceId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
 
   const [service, setService] = useState<any>(null);
   const [providers, setProviders] = useState<any[]>([]);
@@ -48,15 +46,31 @@ export const BookingPage: React.FC = () => {
   });
 
   useEffect(() => {
-    if (!user) {
-      toast.error('Please login to book a service');
-      navigate('/login');
-      return;
-    }
     fetchServiceDetails();
-  }, [serviceId, user]);
+  }, [serviceId]);
 
   const fetchServiceDetails = async () => {
+    if (!serviceId) return;
+    
+    // Check if serviceId is a valid UUID
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(serviceId);
+    
+    if (!isUuid) {
+      // If not a UUID, use fallback data
+      const { fallbackServices } = await import('../data/fallbackData');
+      const service = fallbackServices.find(s => s.id === serviceId);
+      if (service) {
+        setService(service);
+        setProviders([
+          { id: 'mock-1', name: 'Alex Johnson', rating: 4.8, experience: '5 years', phone: '+1234567890' },
+          { id: 'mock-2', name: 'Sarah Williams', rating: 4.9, experience: '7 years', phone: '+1987654321' },
+          { id: 'mock-3', name: 'David Chen', rating: 4.6, experience: '3 years', phone: '+1122334455' }
+        ]);
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
       // Fetch service
       const { data: serviceData, error: serviceError } = await supabase
@@ -87,6 +101,7 @@ export const BookingPage: React.FC = () => {
         setProviders(providerData);
       }
     } catch (error: any) {
+      console.error('BookingPage fetch error:', error);
       toast.error('Failed to load service details');
       navigate('/services');
     } finally {
@@ -153,39 +168,26 @@ export const BookingPage: React.FC = () => {
   const submitBooking = async () => {
     setSubmitting(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('Please login to confirm booking');
+        navigate('/login');
+        return;
+      }
+
       // Calculate price (mock logic)
       const basePrice = 499;
       const urgentFee = formData.isUrgent ? 200 : 0;
       const totalPrice = basePrice + urgentFee;
 
-      // Check if provider is a mock provider
-      let actualProviderId = formData.providerId;
-      if (actualProviderId.startsWith('mock-')) {
-        // Create a real provider on the fly for the demo to work with foreign keys
-        const mockProvider = providers.find(p => p.id === actualProviderId);
-        const { data: newProvider, error: pError } = await supabase
-          .from('service_providers')
-          .insert({
-            name: mockProvider.name,
-            email: `${mockProvider.name.replace(' ', '').toLowerCase()}@example.com`,
-            service_id: serviceId!,
-            rating: mockProvider.rating,
-            experience: mockProvider.experience,
-            phone: mockProvider.phone
-          })
-          .select()
-          .single();
-          
-        if (!pError && newProvider) {
-          actualProviderId = newProvider.id;
-        } else {
-          // If creation fails, we can't book. Just throw error.
-          throw new Error('Failed to assign provider. Please try again.');
-        }
+      // Use the selected provider ID directly
+      const actualProviderId = formData.providerId;
+      if (!actualProviderId) {
+        throw new Error('Please select a service provider');
       }
 
       const { data, error } = await supabase.from('bookings').insert({
-        user_id: user!.id,
+        user_id: user.id,
         service_id: serviceId!,
         provider_id: actualProviderId,
         status: 'pending',

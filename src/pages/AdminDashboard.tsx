@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   LayoutDashboard,
@@ -24,13 +25,14 @@ import {
 import { toast } from 'sonner';
 import { formatDate, cn } from '../lib/utils';
 
-import { seedDatabase } from '../lib/seed';
+import { seedDatabase, clearDatabase } from '../lib/seed';
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [stats, setStats] = useState({
     users: 0,
     providers: 0,
@@ -59,6 +61,19 @@ export const AdminDashboard: React.FC = () => {
       return;
     }
     fetchAllData();
+
+    // Set up real-time subscriptions
+    const channels = [
+      supabase.channel('categories').on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, fetchAllData).subscribe(),
+      supabase.channel('services').on('postgres_changes', { event: '*', schema: 'public', table: 'services' }, fetchAllData).subscribe(),
+      supabase.channel('users_profile').on('postgres_changes', { event: '*', schema: 'public', table: 'users_profile' }, fetchAllData).subscribe(),
+      supabase.channel('service_providers').on('postgres_changes', { event: '*', schema: 'public', table: 'service_providers' }, fetchAllData).subscribe(),
+      supabase.channel('bookings').on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, fetchAllData).subscribe(),
+    ];
+
+    return () => {
+      channels.forEach(channel => supabase.removeChannel(channel));
+    };
   }, []);
 
   const fetchAllData = async () => {
@@ -98,14 +113,24 @@ export const AdminDashboard: React.FC = () => {
   };
 
   // CRUD Handlers
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData((prev: any) => ({ ...prev, image_url: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    setLoading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const { data, error } = await supabaseAdmin.storage.from('services').upload(fileName, file);
+      if (error) throw error;
+
+      const { data: urlData } = supabase.storage.from('services').getPublicUrl(data.path);
+      setFormData((prev: any) => ({ ...prev, image_url: urlData.publicUrl }));
+      toast.success('Image uploaded successfully');
+    } catch (error: any) {
+      toast.error('Failed to upload image: ' + error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -116,10 +141,10 @@ export const AdminDashboard: React.FC = () => {
       let error;
       if (modalType === 'category') {
         if (editingItem) {
-          const { error: err } = await supabase.from('categories').update({ name: formData.name }).eq('id', editingItem.id);
+          const { error: err } = await supabaseAdmin.from('categories').update({ name: formData.name }).eq('id', editingItem.id);
           error = err;
         } else {
-          const { error: err } = await supabase.from('categories').insert({ name: formData.name });
+          const { error: err } = await supabaseAdmin.from('categories').insert({ name: formData.name });
           error = err;
         }
       } else if (modalType === 'service') {
@@ -130,10 +155,10 @@ export const AdminDashboard: React.FC = () => {
           image_url: formData.image_url
         };
         if (editingItem) {
-          const { error: err } = await supabase.from('services').update(payload).eq('id', editingItem.id);
+          const { error: err } = await supabaseAdmin.from('services').update(payload).eq('id', editingItem.id);
           error = err;
         } else {
-          const { error: err } = await supabase.from('services').insert(payload);
+          const { error: err } = await supabaseAdmin.from('services').insert(payload);
           error = err;
         }
       }
@@ -152,7 +177,7 @@ export const AdminDashboard: React.FC = () => {
   const handleDelete = async (id: string, table: string) => {
     if (!confirm('Are you sure you want to delete this?')) return;
     try {
-      const { error } = await supabase.from(table).delete().eq('id', id);
+      const { error } = await supabaseAdmin.from(table).delete().eq('id', id);
       if (error) throw error;
       toast.success('Deleted successfully');
       fetchAllData();
@@ -227,26 +252,41 @@ export const AdminDashboard: React.FC = () => {
             <p className="text-gray-400">Manage your platform data and operations</p>
           </div>
           <div className="flex items-center space-x-4">
-            {categories.length === 0 && activeTab === 'overview' && (
-              <button
-                onClick={async () => {
-                  setSeeding(true);
-                  const res = await seedDatabase();
-                  if (res.success) {
-                    toast.success('Demo data seeded successfully!');
-                    fetchAllData();
-                  } else {
-                    toast.error('Failed to seed data: ' + res.error);
-                  }
-                  setSeeding(false);
-                }}
-                disabled={seeding}
-                className="bg-yellow-600 text-black px-4 py-2 rounded-xl font-bold hover:bg-yellow-700 transition-all flex items-center space-x-2"
-              >
-                {seeding ? <Loader2 className="animate-spin" size={16} /> : <Plus size={16} />}
-                <span>Seed Demo Data</span>
-              </button>
-            )}
+            <button
+              onClick={async () => {
+                if (!confirm('Are you sure you want to clear ALL data? This cannot be undone.')) return;
+                setClearing(true);
+                const result = await clearDatabase();
+                setClearing(false);
+                if (result.success) {
+                  toast.success('Database cleared successfully');
+                  fetchAllData();
+                } else {
+                  toast.error('Failed to clear: ' + result.error);
+                }
+              }}
+              disabled={clearing || seeding}
+              className="bg-red-900/20 text-red-500 px-4 py-2 rounded-xl font-bold hover:bg-red-900/30 transition-all flex items-center space-x-2 border border-red-900/30"
+            >
+              {clearing ? <Loader2 className="animate-spin" size={16} /> : <span>Clear All Data</span>}
+            </button>
+            <button
+              onClick={async () => {
+                setSeeding(true);
+                const result = await seedDatabase();
+                setSeeding(false);
+                if (result.success) {
+                  toast.success('Database seeded successfully');
+                  fetchAllData();
+                } else {
+                  toast.error('Failed to seed: ' + result.error);
+                }
+              }}
+              disabled={seeding || clearing}
+              className="bg-yellow-500 text-black px-4 py-2 rounded-xl font-bold hover:bg-yellow-400 transition-all flex items-center space-x-2"
+            >
+              {seeding ? <Loader2 className="animate-spin" size={16} /> : <span>Seed Demo Data</span>}
+            </button>
             <div className="bg-gray-900 p-2 rounded-xl border border-gray-800">
               <span className="text-xs font-bold text-yellow-500 px-2 uppercase tracking-widest">Live System</span>
             </div>
@@ -484,7 +524,7 @@ export const AdminDashboard: React.FC = () => {
                               value={booking.status}
                               onChange={async (e) => {
                                 const newStatus = e.target.value;
-                                const { error } = await supabase.from('bookings').update({ status: newStatus }).eq('id', booking.id);
+                                const { error } = await supabaseAdmin.from('bookings').update({ status: newStatus }).eq('id', booking.id);
                                 if (!error) {
                                   toast.success('Status updated');
                                   fetchAllData();
