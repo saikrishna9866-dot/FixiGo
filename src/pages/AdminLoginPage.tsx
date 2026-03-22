@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Lock, User } from 'lucide-react';
 import { toast } from 'sonner';
+import { FixigoProLogo } from '../components/FixigoProLogo';
 
 export const AdminLoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -24,7 +25,9 @@ export const AdminLoginPage: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-950 p-4">
       <div className="w-full max-w-md bg-gray-900 p-8 rounded-3xl border border-gray-800 shadow-2xl">
-        <h2 className="text-3xl font-bold text-white mb-8 text-center">Admin Access</h2>
+        <div className="flex justify-center mb-10">
+          <FixigoProLogo theme="dark" />
+        </div>
         <form onSubmit={handleLogin} className="space-y-6">
           <div className="relative">
             <User className="absolute left-3 top-3.5 text-gray-500" size={20} />

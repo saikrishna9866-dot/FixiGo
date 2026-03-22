@@ -3,8 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Search, ArrowRight, User, LogOut, Shield, Briefcase, Bell } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
-import { auth, db } from '../firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
 
 export const Navbar: React.FC = () => {
@@ -34,20 +33,20 @@ export const Navbar: React.FC = () => {
     };
     document.addEventListener('mousedown', handleClickOutside);
 
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
     });
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
       document.removeEventListener('mousedown', handleClickOutside);
-      unsubscribe();
+      subscription.unsubscribe();
     };
   }, []);
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      await supabase.auth.signOut();
       toast.success('Logged out successfully');
       navigate('/');
       setIsOpen(false);
@@ -58,12 +57,10 @@ export const Navbar: React.FC = () => {
 
   const fetchServices = async () => {
     try {
-      const { collection, getDocs, query } = await import('firebase/firestore');
-      const q = query(collection(db, 'services'));
-      const querySnapshot = await getDocs(q);
+      const { data, error } = await supabase.from('services').select('*, categories(*)');
       
-      if (!querySnapshot.empty) {
-        setServices(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      if (!error && data && data.length > 0) {
+        setServices(data);
       } else {
         const { fallbackServices } = await import('../data/fallbackData');
         setServices(fallbackServices);

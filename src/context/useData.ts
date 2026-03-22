@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { db } from '../firebase';
-import { collection, query, getDocs, orderBy, where } from 'firebase/firestore';
+import { supabase } from '../lib/supabase';
 import { Category, Service } from '../types';
 import { fallbackCategories, fallbackServices } from '../data/fallbackData';
 import { toast } from 'sonner';
@@ -13,23 +12,22 @@ export const useCategories = () => {
   const fetchCategories = async () => {
     setLoading(true);
     try {
-      const q = query(collection(db, 'categories'), orderBy('name'));
-      const querySnapshot = await getDocs(q);
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .order('name');
       
-      if (querySnapshot.empty) {
+      if (error) throw error;
+      
+      if (!data || data.length === 0) {
         console.warn('Using fallback categories due to empty data');
         setCategories(fallbackCategories as Category[]);
       } else {
-        const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Category[];
-        setCategories(data);
+        setCategories(data as Category[]);
       }
     } catch (err: any) {
       console.error('Error fetching categories:', err);
-      if (err.message?.includes('Missing or insufficient permissions')) {
-        toast.error('Database access denied. Please check security rules.');
-      } else {
-        toast.error('Database connection failed. Using offline data.');
-      }
+      toast.error('Database connection failed. Using offline data.');
       setCategories(fallbackCategories as Category[]);
       setError(err.message);
     } finally {
@@ -52,14 +50,17 @@ export const useServices = (categoryId?: string) => {
   const fetchServices = async () => {
     setLoading(true);
     try {
-      let q = query(collection(db, 'services'));
+      let query = supabase.from('services').select('*, categories(*)');
+      
       if (categoryId) {
-        q = query(collection(db, 'services'), where('category_id', '==', categoryId));
+        query = query.eq('category_id', categoryId);
       }
       
-      const querySnapshot = await getDocs(q);
+      const { data, error } = await query;
       
-      if (querySnapshot.empty) {
+      if (error) throw error;
+      
+      if (!data || data.length === 0) {
         console.warn('Using fallback services due to empty data');
         let filtered = fallbackServices;
         if (categoryId) {
@@ -70,16 +71,11 @@ export const useServices = (categoryId?: string) => {
         }
         setServices(filtered as Service[]);
       } else {
-        const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Service[];
-        setServices(data);
+        setServices(data as Service[]);
       }
     } catch (err: any) {
       console.error('Error fetching services:', err);
-      if (err.message?.includes('Missing or insufficient permissions')) {
-        toast.error('Database access denied. Please check security rules.');
-      } else {
-        toast.error('Database connection failed. Using offline data.');
-      }
+      toast.error('Database connection failed. Using offline data.');
       setServices(fallbackServices as Service[]);
       setError(err.message);
     } finally {

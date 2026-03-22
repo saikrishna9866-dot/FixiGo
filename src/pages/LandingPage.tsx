@@ -69,6 +69,13 @@ const HeroSection: React.FC<{
           >
             Search
           </button>
+          <Link
+            to="/admin/login"
+            className="hidden md:flex items-center justify-center w-14 h-14 ml-4 bg-white border border-gray-100 rounded-2xl text-gray-400 hover:text-yellow-500 hover:border-yellow-200 hover:shadow-lg transition-all group"
+            title="Admin Login"
+          >
+            <ShieldCheck size={24} className="group-hover:scale-110 transition-transform" />
+          </Link>
         </form>
 
         {isSearchFocused && searchQuery.trim() && filteredServices.length > 0 && (
@@ -239,17 +246,6 @@ export const LandingPage: React.FC = () => {
         navigate={navigate}
       />
 
-      {/* Trust Bar */}
-      <div className="bg-gray-50 py-12 border-y border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 items-center opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
-            <div className="flex justify-center"><img src="https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg" alt="Partner" className="h-8" /></div>
-            <div className="flex justify-center"><img src="https://upload.wikimedia.org/wikipedia/commons/2/2f/Google_2015_logo.svg" alt="Partner" className="h-8" /></div>
-            <div className="flex justify-center"><img src="https://upload.wikimedia.org/wikipedia/commons/b/b1/Tata_logo.svg" alt="Partner" className="h-8" /></div>
-            <div className="flex justify-center"><img src="https://upload.wikimedia.org/wikipedia/commons/0/08/Netflix_2015_logo.svg" alt="Partner" className="h-8" /></div>
-          </div>
-        </div>
-      </div>
 
       <section className="py-32 bg-white relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -383,7 +379,7 @@ export const LandingPage: React.FC = () => {
       </section>
 
       {/* Testimonials */}
-      <section className="py-32 bg-white">
+      <section id="reviews" className="py-32 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-20">
             <span className="text-yellow-600 font-black uppercase tracking-[0.3em] text-sm mb-4 block">Reviews</span>
@@ -418,78 +414,28 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Download App Section */}
-      <section className="py-32 bg-white overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-black rounded-[4rem] p-12 md:p-24 relative overflow-hidden flex flex-col md:flex-row items-center gap-16">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-yellow-500/20 rounded-full blur-[120px] -mr-48 -mt-48"></div>
-            <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/10 rounded-full blur-[120px] -ml-48 -mb-48"></div>
-            
-            <div className="flex-1 relative z-10 text-center md:text-left">
-              <span className="text-yellow-500 font-black uppercase tracking-[0.3em] text-sm mb-6 block">Mobile App</span>
-              <h2 className="text-5xl md:text-7xl font-black text-white mb-8 leading-tight">Everything you need, <br /> in your pocket.</h2>
-              <p className="text-gray-400 text-xl mb-12 max-w-xl font-medium leading-relaxed">
-                Download the FixiGo app to book services, track professionals in real-time, and manage your bookings on the go.
-              </p>
-              <div className="flex flex-wrap justify-center md:justify-start gap-6">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/3/3c/Download_on_the_App_Store_Badge.svg" alt="App Store" className="h-14 cursor-pointer hover:scale-105 transition-transform" />
-                <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Google Play" className="h-14 cursor-pointer hover:scale-105 transition-transform" />
-              </div>
-              <div className="mt-12 flex items-center justify-center md:justify-start space-x-8">
-                <div className="text-center">
-                  <p className="text-3xl font-black text-white">4.9</p>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">App Rating</p>
-                </div>
-                <div className="w-px h-10 bg-white/10"></div>
-                <div className="text-center">
-                  <p className="text-3xl font-black text-white">1M+</p>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Downloads</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex-1 relative">
-              <motion.div 
-                initial={{ y: 100, opacity: 0 }}
-                whileInView={{ y: 0, opacity: 1 }}
-                viewport={{ once: true }}
-                className="relative z-10"
-              >
-                <img 
-                  src="https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&q=80&w=1000" 
-                  alt="App Mockup" 
-                  className="w-full max-w-[400px] mx-auto rounded-[3rem] shadow-2xl border-8 border-white/10"
-                />
-              </motion.div>
-              <div className="absolute -top-10 -right-10 w-40 h-40 bg-yellow-500 rounded-full flex items-center justify-center text-black font-black text-center p-6 rotate-12 shadow-2xl z-20">
-                Get 20% OFF on first app booking!
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* Become a Pro CTA */}
-      <section className="py-32 bg-yellow-500 relative overflow-hidden">
+      <section className="py-20 bg-yellow-500 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-black via-transparent to-transparent"></div>
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
-          <span className="text-black font-black uppercase tracking-[0.3em] text-sm mb-6 block">Join the Network</span>
-          <h2 className="text-5xl md:text-7xl font-black text-black mb-10 leading-tight">Grow Your Business <br /> with FixiGo</h2>
-          <p className="text-black/70 text-2xl mb-12 max-w-3xl mx-auto font-medium leading-relaxed">
+          <span className="text-black font-black uppercase tracking-[0.3em] text-xs mb-4 block">Join the Network</span>
+          <h2 className="text-3xl md:text-5xl font-black text-black mb-6 leading-tight">Grow Your Business <br /> with FixiGo</h2>
+          <p className="text-black/70 text-lg mb-8 max-w-2xl mx-auto font-medium leading-relaxed">
             Are you a service professional? Join 500+ experts and start getting bookings in your area today.
           </p>
-          <div className="flex flex-col sm:flex-row justify-center gap-6">
+          <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Link
               to="/register-professional"
-              className="bg-black text-white px-12 py-6 rounded-[2rem] font-black text-xl hover:bg-gray-800 transition-all shadow-2xl active:scale-95 flex items-center justify-center"
+              className="bg-black text-white px-8 py-4 rounded-2xl font-black text-lg hover:bg-gray-800 transition-all shadow-2xl active:scale-95 flex items-center justify-center"
             >
-              Become a Pro <ArrowRight size={24} className="ml-3" />
+              Become a Pro <ArrowRight size={20} className="ml-2" />
             </Link>
             <Link
               to="/contact"
-              className="bg-white text-black px-12 py-6 rounded-[2rem] font-black text-xl hover:bg-gray-50 transition-all shadow-xl active:scale-95"
+              className="bg-white text-black px-8 py-4 rounded-2xl font-black text-lg hover:bg-gray-50 transition-all shadow-xl active:scale-95"
             >
               Contact Us
             </Link>
@@ -498,46 +444,26 @@ export const LandingPage: React.FC = () => {
       </section>
       
       {/* Trust & Security */}
-      <section className="py-32 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-20 items-center">
-            <div>
-              <span className="text-yellow-600 font-black uppercase tracking-[0.3em] text-sm mb-4 block">Security</span>
-              <h2 className="text-5xl font-black text-black mb-8 leading-tight">Your Trust is Our <br /> Top Priority</h2>
-              <div className="space-y-8">
-                {[
-                  { title: 'Verified Professionals', desc: 'Every expert undergoes a rigorous background check and skill verification.', icon: <ShieldCheck className="text-emerald-500" /> },
-                  { title: 'Secure Payments', desc: 'Your transactions are protected with industry-standard encryption.', icon: <Lock className="text-blue-500" /> },
-                  { title: 'Data Privacy', desc: 'Your personal data is सुरक्षित (secure) and never shared with third parties.', icon: <ShieldCheck className="text-yellow-500" /> },
-                ].map((item, idx) => (
-                  <div key={idx} className="flex items-start group">
-                    <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center mr-6 flex-shrink-0 group-hover:bg-yellow-50 transition-colors">
-                      {React.cloneElement(item.icon as React.ReactElement, { size: 28 })}
-                    </div>
-                    <div>
-                      <h4 className="text-xl font-black text-black mb-2">{item.title}</h4>
-                      <p className="text-gray-500 font-medium leading-relaxed">{item.desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="relative">
-              <div className="absolute -inset-4 bg-yellow-500/10 rounded-[3rem] blur-2xl"></div>
-              <img 
-                src="https://images.unsplash.com/photo-1581578731548-c64695cc6958?auto=format&fit=crop&q=80&w=1000" 
-                alt="Security" 
-                className="rounded-[3rem] shadow-2xl relative z-10 border-8 border-white"
-                loading="lazy"
-              />
-              <div className="absolute -bottom-10 -left-10 bg-white p-8 rounded-3xl shadow-2xl z-20 border border-gray-100 max-w-[240px] animate-bounce-slow">
-                <div className="flex items-center text-emerald-500 mb-2">
-                  <CheckCircle size={20} className="mr-2" />
-                  <span className="font-black text-sm uppercase tracking-widest">Verified</span>
+      <section className="py-20 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="mb-12">
+            <span className="text-yellow-600 font-black uppercase tracking-[0.3em] text-xs mb-4 block">Security</span>
+            <h2 className="text-4xl font-black text-black leading-tight">Your Trust is Our Top Priority</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[
+              { title: 'Verified Professionals', desc: 'Every expert undergoes a rigorous background check and skill verification.', icon: <ShieldCheck className="text-emerald-500" /> },
+              { title: 'Secure Payments', desc: 'Your transactions are protected with industry-standard encryption.', icon: <Lock className="text-blue-500" /> },
+              { title: 'Data Privacy', desc: 'Your personal data is secure and never shared with third parties.', icon: <ShieldCheck className="text-yellow-500" /> },
+            ].map((item, idx) => (
+              <div key={idx} className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all text-left">
+                <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center mb-6">
+                  {React.cloneElement(item.icon as React.ReactElement, { size: 24 })}
                 </div>
-                <p className="text-black font-black text-lg">100% Secure Platform</p>
+                <h4 className="text-lg font-black text-black mb-2">{item.title}</h4>
+                <p className="text-gray-500 text-sm font-medium leading-relaxed">{item.desc}</p>
               </div>
-            </div>
+            ))}
           </div>
         </div>
       </section>

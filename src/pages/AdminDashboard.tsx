@@ -1,19 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { db, auth } from '../firebase';
-import { 
-  collection, 
-  getDocs, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  query, 
-  orderBy, 
-  limit,
-  serverTimestamp
-} from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   LayoutDashboard,
@@ -90,11 +77,11 @@ export const AdminDashboard: React.FC = () => {
     setTestStatus('testing');
     setTestError(null);
     try {
-      // Test Firestore connection
-      const testRef = collection(db, 'categories');
-      await getDocs(query(testRef, limit(1)));
+      // Test Supabase connection
+      const { error } = await supabaseAdmin.from('categories').select('id').limit(1);
+      if (error) throw error;
       setTestStatus('success');
-      toast.success('Successfully connected to Firebase!');
+      toast.success('Successfully connected to Supabase!');
     } catch (err: any) {
       setTestStatus('error');
       setTestError(err.message || 'Unknown error');
@@ -116,60 +103,48 @@ export const AdminDashboard: React.FC = () => {
     setLoading(true);
     try {
       // Fetch Categories
-      const categoriesSnap = await getDocs(collection(db, 'categories'));
-      const categoriesData = categoriesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setCategories(categoriesData);
+      const { data: categoriesData, error: catError } = await supabaseAdmin.from('categories').select('*');
+      if (catError) throw catError;
+      setCategories(categoriesData || []);
 
       // Fetch Services
-      const servicesSnap = await getDocs(collection(db, 'services'));
-      const servicesData = servicesSnap.docs.map(doc => {
-        const data = doc.data();
-        const category = categoriesData.find(c => c.id === data.category_id);
-        return { id: doc.id, ...data, categories: category };
-      });
-      setServices(servicesData);
+      const { data: servicesData, error: serError } = await supabaseAdmin.from('services').select('*, categories(*)');
+      if (serError) throw serError;
+      setServices(servicesData || []);
 
       // Fetch Users
-      const usersSnap = await getDocs(collection(db, 'users'));
-      const usersData = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setUsers(usersData);
+      const { data: usersData, error: usersError } = await supabaseAdmin.from('users_profile').select('*');
+      if (usersError) throw usersError;
+      setUsers(usersData || []);
 
       // Fetch Providers
-      const providersSnap = await getDocs(collection(db, 'service_providers'));
-      const providersData = providersSnap.docs.map(doc => {
-        const data = doc.data();
-        const service = servicesData.find(s => s.id === data.service_id);
-        return { id: doc.id, ...data, services: service };
-      });
-      setProviders(providersData);
+      const { data: providersData, error: provError } = await supabaseAdmin.from('service_providers').select('*, services(*)');
+      if (provError) throw provError;
+      setProviders(providersData || []);
 
       // Fetch Bookings
-      const bookingsSnap = await getDocs(query(collection(db, 'bookings'), orderBy('created_at', 'desc')));
-      const bookingsData = bookingsSnap.docs.map(doc => {
-        const data = doc.data() as any;
-        const user = usersData.find(u => u.id === data.user_id);
-        const service = servicesData.find(s => s.id === data.service_id);
-        const provider = providersData.find(p => p.id === data.provider_id);
-        return { 
-          id: doc.id, 
-          ...data, 
-          users: user, 
-          services: service, 
-          service_providers: provider 
-        };
-      });
-      setBookings(bookingsData);
+      const { data: bookingsData, error: bookError } = await supabaseAdmin
+        .from('bookings')
+        .select('*, users_profile(*), services(*), service_providers(*)')
+        .order('created_at', { ascending: false });
+      if (bookError) throw bookError;
+      
+      const formattedBookings = (bookingsData || []).map(b => ({
+        ...b,
+        users: b.users_profile
+      }));
+      setBookings(formattedBookings);
 
       // Calculate Stats
-      const totalRevenue = bookingsData
+      const totalRevenue = formattedBookings
         .filter((b: any) => b.status === 'completed')
         .reduce((sum: number, b: any) => sum + (Number(b.total_price) || 0), 0);
 
       setStats({
-        users: usersData.length,
-        providers: providersData.length,
-        bookings: bookingsData.length,
-        activeJobs: bookingsData.filter((b: any) => b.status === 'accepted').length,
+        users: (usersData || []).length,
+        providers: (providersData || []).length,
+        bookings: formattedBookings.length,
+        activeJobs: formattedBookings.filter((b: any) => b.status === 'accepted').length,
         revenue: totalRevenue
       });
 
@@ -181,7 +156,7 @@ export const AdminDashboard: React.FC = () => {
       }).reverse();
 
       const chart = last7Days.map(date => {
-        const dayBookings = bookingsData.filter((b: any) => b.created_at?.startsWith(date)) || [];
+        const dayBookings = formattedBookings.filter((b: any) => b.created_at?.startsWith(date)) || [];
         return {
           date: new Date(date).toLocaleDateString('en-US', { weekday: 'short' }),
           bookings: dayBookings.length,
@@ -222,16 +197,21 @@ export const AdminDashboard: React.FC = () => {
 
     setLoading(true);
     try {
-      const storage = getStorage();
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `service-images/${fileName}`;
       
-      const storageRef = ref(storage, filePath);
-      await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(storageRef);
+      const { error: uploadError } = await supabaseAdmin.storage
+        .from('services')
+        .upload(filePath, file);
+        
+      if (uploadError) throw uploadError;
       
-      setFormData((prev: any) => ({ ...prev, image_url: downloadURL }));
+      const { data: { publicUrl } } = supabaseAdmin.storage
+        .from('services')
+        .getPublicUrl(filePath);
+      
+      setFormData((prev: any) => ({ ...prev, image_url: publicUrl }));
       toast.success('Image uploaded successfully');
     } catch (error: any) {
       console.error('Full upload error:', error);
@@ -246,15 +226,20 @@ export const AdminDashboard: React.FC = () => {
     setLoading(true);
     try {
       const table = modalType === 'category' ? 'categories' : 'services';
-      const data = { ...formData, updated_at: serverTimestamp() };
+      const data = { ...formData };
       
       if (editingItem) {
-        const docRef = doc(db, table, editingItem.id);
-        await updateDoc(docRef, data);
+        const { error } = await supabaseAdmin
+          .from(table)
+          .update(data)
+          .eq('id', editingItem.id);
+        if (error) throw error;
         toast.success(`${modalType} updated`);
       } else {
-        const collRef = collection(db, table);
-        await addDoc(collRef, { ...data, created_at: serverTimestamp() });
+        const { error } = await supabaseAdmin
+          .from(table)
+          .insert([data]);
+        if (error) throw error;
         toast.success(`${modalType} added`);
       }
       setIsModalOpen(false);
@@ -270,8 +255,11 @@ export const AdminDashboard: React.FC = () => {
   const handleDelete = async (id: string, table: string) => {
     if (!confirm('Are you sure you want to delete this?')) return;
     try {
-      const docRef = doc(db, table, id);
-      await deleteDoc(docRef);
+      const { error } = await supabaseAdmin
+        .from(table)
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
       toast.success('Deleted successfully');
       fetchAllData();
     } catch (error: any) {
@@ -282,11 +270,11 @@ export const AdminDashboard: React.FC = () => {
 
   const handleStatusUpdate = async (bookingId: string, newStatus: string) => {
     try {
-      const docRef = doc(db, 'bookings', bookingId);
-      await updateDoc(docRef, { 
-        status: newStatus,
-        updated_at: serverTimestamp()
-      });
+      const { error } = await supabaseAdmin
+        .from('bookings')
+        .update({ status: newStatus })
+        .eq('id', bookingId);
+      if (error) throw error;
       toast.success('Status updated');
       fetchAllData();
     } catch (error: any) {
@@ -633,7 +621,7 @@ export const AdminDashboard: React.FC = () => {
                         <td className="px-6 py-4 text-sm text-gray-300">{user.full_name || 'N/A'}</td>
                         <td className="px-6 py-4 text-sm text-gray-400">{formatDate(user.created_at)}</td>
                         <td className="px-6 py-4 text-right">
-                          <button onClick={() => handleDelete(user.id, 'users')} className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                          <button onClick={() => handleDelete(user.id, 'users_profile')} className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
                             <Trash2 size={16} />
                           </button>
                         </td>

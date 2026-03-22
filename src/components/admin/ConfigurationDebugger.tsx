@@ -207,7 +207,7 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;`;
                     </div>
                     <div className="flex items-center justify-between bg-black/40 p-2.5 rounded-xl border border-gray-800">
                       <code className="text-xs text-gray-300 truncate mr-2 font-mono">
-                        {env.isSecret ? '••••••••••••••••' + env.value.slice(-6) : env.value || 'Not set'}
+                        {env.isSecret ? (env.value ? '••••••••••••••••' + env.value.slice(-6) : 'Not set') : env.value || 'Not set'}
                       </code>
                       <button onClick={() => copyToClipboard(env.value)} className="text-gray-500 hover:text-yellow-500 transition-colors">
                         <Copy size={14} />
