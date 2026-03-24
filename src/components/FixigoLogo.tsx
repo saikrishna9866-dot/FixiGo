@@ -2,12 +2,12 @@ import React from 'react';
 import { Wrench } from 'lucide-react';
 import { cn } from '../lib/utils';
 
-interface FixigoProLogoProps {
+interface FixigoLogoProps {
   className?: string;
   theme?: 'light' | 'dark';
 }
 
-export const FixigoProLogo: React.FC<FixigoProLogoProps> = ({ className, theme = 'light' }) => {
+export const FixigoLogo: React.FC<FixigoLogoProps> = ({ className, theme = 'light' }) => {
   const isDark = theme === 'dark';
   
   return (
@@ -24,13 +24,13 @@ export const FixigoProLogo: React.FC<FixigoProLogoProps> = ({ className, theme =
           "text-2xl font-black tracking-tight leading-none",
           isDark ? "text-white" : "text-slate-900"
         )}>
-          Fixigo<span className="text-blue-600">Pro</span>
+          Fixi<span className="text-blue-600">Go</span>
         </span>
         <span className={cn(
           "text-[10px] font-bold uppercase tracking-widest mt-0.5",
           isDark ? "text-slate-400" : "text-slate-500"
         )}>
-          Provider Dashboard
+          Admin Dashboard
         </span>
       </div>
     </div>

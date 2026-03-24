@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Search, MapPin, Star, ShieldCheck, Clock, ArrowRight, Loader2, CheckCircle, Users, Award, Quote, Lock } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useCategories, useServices } from '../context/useData';
+import { useData } from '../context/DataContext';
 import { Category, Service } from '../types';
 
 const HeroSection: React.FC<{
@@ -72,7 +72,7 @@ const HeroSection: React.FC<{
           <Link
             to="/admin/login"
             className="hidden md:flex items-center justify-center w-14 h-14 ml-4 bg-white border border-gray-100 rounded-2xl text-gray-400 hover:text-yellow-500 hover:border-yellow-200 hover:shadow-lg transition-all group"
-            title="Admin Login"
+            title="Admin Dashboard"
           >
             <ShieldCheck size={24} className="group-hover:scale-110 transition-transform" />
           </Link>
@@ -213,8 +213,7 @@ const ServiceCard: React.FC<{ service: Service; onBook: (id: string) => void }> 
 );
 
 export const LandingPage: React.FC = () => {
-  const { categories } = useCategories();
-  const { services, loading: loadingServices } = useServices();
+  const { categories, services, loadingServices } = useData();
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const navigate = useNavigate();
@@ -470,32 +469,4 @@ export const LandingPage: React.FC = () => {
     </div>
   );
 };
-
-// Add this to your global CSS or a style tag
-const style = document.createElement('style');
-style.textContent = `
-  @keyframes blob {
-    0% { transform: translate(0px, 0px) scale(1); }
-    33% { transform: translate(30px, -50px) scale(1.1); }
-    66% { transform: translate(-20px, 20px) scale(0.9); }
-    100% { transform: translate(0px, 0px) scale(1); }
-  }
-  .animate-blob {
-    animation: blob 7s infinite;
-  }
-  .animation-delay-2000 {
-    animation-delay: 2s;
-  }
-  .animation-delay-4000 {
-    animation-delay: 4s;
-  }
-  @keyframes bounce-slow {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
-  }
-  .animate-bounce-slow {
-    animation: bounce-slow 3s infinite ease-in-out;
-  }
-`;
-document.head.appendChild(style);
 

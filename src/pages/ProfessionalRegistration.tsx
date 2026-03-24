@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { supabase, safeGetSession } from '../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   User, Mail, Phone, Wrench, MapPin, Upload, Calendar, 
@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
-import { useCategories, useServices } from '../context/useData';
+import { useData } from '../context/DataContext';
 
 import { professionalService } from '../services/professionalService';
 
@@ -23,7 +23,7 @@ const steps = [
 
 export const ProfessionalRegistration: React.FC = () => {
   const navigate = useNavigate();
-  const { categories } = useCategories();
+  const { categories, services } = useData();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
 
@@ -40,7 +40,8 @@ export const ProfessionalRegistration: React.FC = () => {
   useEffect(() => {
     const checkProfessionalStatus = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data } = await safeGetSession();
+        const session = data?.session;
         if (session?.user) {
           // Pre-fill data from profile
           const { data: profileData } = await supabase.from('users_profile')
@@ -67,7 +68,9 @@ export const ProfessionalRegistration: React.FC = () => {
     checkProfessionalStatus();
   }, []);
 
-  const { services: categoryServices, loading: servicesLoading } = useServices(formData.category_id);
+  const categoryServices = formData.category_id 
+    ? (services || []).filter(s => s.category_id === formData.category_id)
+    : [];
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -105,7 +108,8 @@ export const ProfessionalRegistration: React.FC = () => {
 
     setLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data } = await safeGetSession();
+      const session = data?.session;
       if (!session?.user) throw new Error('You must be logged in to register');
 
       const userId = session.user.id;

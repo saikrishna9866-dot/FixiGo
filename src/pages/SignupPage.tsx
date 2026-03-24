@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { supabase, safeSignUp } from '../lib/supabase';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
 import { Mail, Lock, User, Loader2 } from 'lucide-react';
@@ -22,7 +22,7 @@ export const SignupPage: React.FC = () => {
     // Allow dummy emails by appending a domain if missing
     const finalEmail = email.includes('@') ? email : `${email}@dummy.com`;
     
-    const { error } = await supabase.auth.signUp({ 
+    const { error } = await safeSignUp({ 
       email: finalEmail, 
       password, 
       options: { data: { name } } 

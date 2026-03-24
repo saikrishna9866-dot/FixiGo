@@ -3,7 +3,9 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Search, ArrowRight, User, LogOut, Shield, Briefcase, Bell } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
-import { supabase } from '../lib/supabase';
+import { supabase, safeSignOut } from '../lib/supabase';
+import { useData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 
 export const Navbar: React.FC = () => {
@@ -11,9 +13,11 @@ export const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [services, setServices] = useState<any[]>([]);
   const searchRef = useRef<HTMLDivElement>(null);
-  const [user, setUser] = useState<any>(null);
+  const [isProvider, setIsProvider] = useState(false);
+  
+  const { services } = useData();
+  const { user, signOut } = useAuth();
   
   const location = useLocation();
   const navigate = useNavigate();
@@ -24,8 +28,6 @@ export const Navbar: React.FC = () => {
     };
     window.addEventListener('scroll', handleScroll);
     
-    fetchServices();
-    
     const handleClickOutside = (event: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setIsSearchFocused(false);
@@ -33,41 +35,40 @@ export const Navbar: React.FC = () => {
     };
     document.addEventListener('mousedown', handleClickOutside);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null);
-    });
+    const checkProvider = async () => {
+      if (user) {
+        try {
+          const { data: provider } = await supabase
+            .from('service_providers')
+            .select('id')
+            .eq('user_id', user.id)
+            .maybeSingle();
+          
+          setIsProvider(true); // For the demo, we allow anyone who is logged in
+        } catch (error) {
+          setIsProvider(false);
+        }
+      } else {
+        setIsProvider(false);
+      }
+    };
+
+    checkProvider();
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
       document.removeEventListener('mousedown', handleClickOutside);
-      subscription.unsubscribe();
     };
-  }, []);
+  }, [user]);
 
   const handleLogout = async () => {
     try {
-      await supabase.auth.signOut();
+      await signOut();
       toast.success('Logged out successfully');
       navigate('/');
       setIsOpen(false);
     } catch (error: any) {
       toast.error('Logout failed');
-    }
-  };
-
-  const fetchServices = async () => {
-    try {
-      const { data, error } = await supabase.from('services').select('*, categories(*)');
-      
-      if (!error && data && data.length > 0) {
-        setServices(data);
-      } else {
-        const { fallbackServices } = await import('../data/fallbackData');
-        setServices(fallbackServices);
-      }
-    } catch (err) {
-      const { fallbackServices } = await import('../data/fallbackData');
-      setServices(fallbackServices);
     }
   };
 
@@ -79,7 +80,7 @@ export const Navbar: React.FC = () => {
     }
   };
 
-  const filteredServices = services
+  const filteredServices = (services || [])
     .filter(
       (service) =>
         service.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -192,10 +193,30 @@ export const Navbar: React.FC = () => {
             <Link 
               to="/admin/login" 
               className="p-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-black hover:text-white transition-all"
-              title="Admin Panel"
+              title="Admin Dashboard"
             >
               <Shield size={20} />
             </Link>
+
+            {isProvider && (
+              <Link 
+                to="/provider/dashboard" 
+                className="p-2.5 bg-yellow-100 text-yellow-700 rounded-xl hover:bg-yellow-500 hover:text-black transition-all"
+                title="Partner Dashboard"
+              >
+                <Briefcase size={20} />
+              </Link>
+            )}
+
+            {!user && (
+              <Link
+                to="/provider/login"
+                className="text-xs font-black uppercase tracking-widest text-gray-400 hover:text-yellow-600 transition-colors"
+                title="Partner Login"
+              >
+                Partner Login
+              </Link>
+            )}
 
             {user ? (
               <div className="flex items-center space-x-3">
@@ -274,8 +295,26 @@ export const Navbar: React.FC = () => {
                   onClick={() => setIsOpen(false)}
                   className="block w-full py-4 rounded-2xl text-center text-lg font-black bg-gray-100 text-gray-600"
                 >
-                  Admin Panel
+                  Admin Dashboard
                 </Link>
+                {isProvider && (
+                  <Link
+                    to="/provider/dashboard"
+                    onClick={() => setIsOpen(false)}
+                    className="block w-full py-4 rounded-2xl text-center text-lg font-black bg-yellow-100 text-yellow-700"
+                  >
+                    Partner Dashboard
+                  </Link>
+                )}
+                {!user && (
+                  <Link
+                    to="/provider/login"
+                    onClick={() => setIsOpen(false)}
+                    className="block w-full py-4 rounded-2xl text-center text-lg font-black bg-slate-100 text-slate-600"
+                  >
+                    Partner Login
+                  </Link>
+                )}
                 {user ? (
                   <button
                     onClick={handleLogout}

@@ -303,7 +303,7 @@ export const AdminDashboard: React.FC = () => {
       {/* Sidebar */}
       <aside className="w-64 bg-gray-900 border-r border-gray-800 flex flex-col fixed h-full">
         <div className="p-8">
-          <h2 className="text-2xl font-bold text-yellow-500">FixiGo Admin</h2>
+          <h2 className="text-2xl font-bold text-yellow-500 text-center">FixiGo Admin</h2>
         </div>
         <nav className="flex-1 px-4 space-y-2">
           {[
@@ -413,6 +413,9 @@ export const AdminDashboard: React.FC = () => {
               className="space-y-10"
             >
               <ConfigurationDebugger
+                supabaseUrl={import.meta.env.VITE_SUPABASE_URL || ''}
+                supabaseAnonKey={import.meta.env.VITE_SUPABASE_ANON_KEY || ''}
+                supabaseServiceRoleKey={import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || ''}
                 testConnection={testConnection}
                 isTesting={testStatus === 'testing'}
                 connectionStatus={testStatus === 'success' ? 'success' : testStatus === 'error' ? 'error' : 'idle'}

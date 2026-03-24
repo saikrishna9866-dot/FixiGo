@@ -3,7 +3,7 @@ import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Search, Star, MapPin, Loader2, ArrowRight, Clock } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { useCategories, useServices } from '../context/useData';
+import { useData } from '../context/DataContext';
 import { Service } from '../types';
 
 const ServiceCard: React.FC<{ service: Service; onBook: (id: string) => void }> = ({ service, onBook }) => (
@@ -64,8 +64,11 @@ export const ServicesPage: React.FC = () => {
   const categoryId = searchParams.get('category');
   const navigate = useNavigate();
 
-  const { categories, loading: loadingCategories } = useCategories();
-  const { services, loading: loadingServices } = useServices(categoryId || undefined);
+  const { categories, services, loadingServices } = useData();
+
+  const filteredServices = categoryId 
+    ? (services || []).filter(s => s.category_id === categoryId)
+    : (services || []);
 
   return (
     <div className="pt-24 pb-12 min-h-screen bg-gray-50">
@@ -107,7 +110,7 @@ export const ServicesPage: React.FC = () => {
               <div key={i} className="bg-white rounded-3xl h-64 animate-pulse border border-gray-100"></div>
             ))}
           </div>
-        ) : !services || services.length === 0 ? (
+        ) : !filteredServices || filteredServices.length === 0 ? (
           <div className="text-center py-24 bg-white rounded-3xl border border-gray-100 shadow-sm">
             <Search className="mx-auto text-gray-300 mb-4" size={48} />
             <h3 className="text-xl font-bold text-black">No services found</h3>
@@ -115,7 +118,7 @@ export const ServicesPage: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {services.map((service) => (
+            {filteredServices.map((service) => (
               <ServiceCard
                 key={service.id}
                 service={service}

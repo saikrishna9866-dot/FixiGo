@@ -2,7 +2,7 @@ import React from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Star, Clock, ArrowRight, Loader2, AlertCircle, MapPin } from 'lucide-react';
-import { useServices } from '../context/useData';
+import { useData } from '../context/DataContext';
 import { Service } from '../types';
 
 const ServiceResultCard: React.FC<{ service: Service; onBook: (id: string) => void }> = ({ service, onBook }) => (
@@ -62,9 +62,9 @@ export const SearchResultsPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const query = searchParams.get('q') || '';
   const navigate = useNavigate();
-  const { services, loading } = useServices();
+  const { services, loadingServices: loading } = useData();
 
-  const filteredResults = services.filter(s => 
+  const filteredResults = (services || []).filter(s => 
     s.title.toLowerCase().includes(query.toLowerCase()) || 
     (s.description && s.description.toLowerCase().includes(query.toLowerCase())) ||
     (s.categories?.name && s.categories.name.toLowerCase().includes(query.toLowerCase()))

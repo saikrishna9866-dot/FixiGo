@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { supabase, safeGetUser } from '../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   MapPin, Calendar, Clock, FileText, User, CreditCard, 
   CheckCircle, ArrowRight, ArrowLeft, Star, ShieldCheck, AlertCircle, Loader2 
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '../lib/utils';
+import { cn, isValidUuid } from '../lib/utils';
 
 const TIME_SLOTS = [
   '09:00 AM - 11:00 AM',
@@ -55,7 +55,7 @@ export const BookingPage: React.FC = () => {
     if (!serviceId) return;
     
     // Check if serviceId is a valid UUID
-    const isUuid = bookingService.isUuid(serviceId || '');
+    const isUuid = isValidUuid(serviceId || '');
     
     if (!isUuid) {
       // If not a UUID, use fallback data
@@ -170,7 +170,8 @@ export const BookingPage: React.FC = () => {
   const submitBooking = async () => {
     setSubmitting(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data } = await safeGetUser();
+      const user = data?.user;
       if (!user) {
         toast.error('Please login to confirm booking');
         navigate('/login');
