@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase, safeGetUser } from '../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  MapPin, Calendar, Clock, FileText, User, CreditCard, 
+  MapPin, Calendar, Clock, FileText, User, Users, CreditCard, 
   CheckCircle, ArrowRight, ArrowLeft, Star, ShieldCheck, AlertCircle, Loader2 
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -145,10 +145,7 @@ export const BookingPage: React.FC = () => {
         }
         return true;
       case 3:
-        if (!formData.providerId) {
-          toast.error('Please select a service provider');
-          return false;
-        }
+        // Provider selection is now optional for the "Open Pool" feature
         return true;
       default:
         return true;
@@ -515,6 +512,32 @@ export const BookingPage: React.FC = () => {
                 <p className="text-gray-500 mb-6">Choose from our verified experts available in your area.</p>
                 
                 <div className="space-y-4">
+                  {/* Option for Open Pool / Any Provider */}
+                  <div 
+                    onClick={() => setFormData({...formData, providerId: ''})}
+                    className={cn(
+                      "p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center",
+                      !formData.providerId 
+                        ? "border-yellow-500 bg-yellow-50" 
+                        : "border-gray-100 hover:border-gray-200 bg-white"
+                    )}
+                  >
+                    <div className="w-16 h-16 bg-yellow-100 rounded-full overflow-hidden mr-4 flex-shrink-0 flex items-center justify-center">
+                      <Users className="text-yellow-600" size={32} />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex justify-between items-start">
+                        <h3 className="font-bold text-lg text-gray-900">Any Available Professional</h3>
+                        {!formData.providerId && (
+                          <CheckCircle className="text-yellow-500" size={24} />
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-500 mt-1">
+                        We'll assign the first expert who accepts your request.
+                      </p>
+                    </div>
+                  </div>
+
                   {providers.map((provider) => (
                     <div 
                       key={provider.id}
@@ -590,7 +613,9 @@ export const BookingPage: React.FC = () => {
                     <div className="flex justify-between">
                       <span className="text-gray-500">Professional</span>
                       <span className="font-bold text-gray-900">
-                        {providers.find(p => p.id === formData.providerId)?.name}
+                        {formData.providerId 
+                          ? providers.find(p => p.id === formData.providerId)?.name 
+                          : 'Any Available Professional'}
                       </span>
                     </div>
                     <div className="flex justify-between">

@@ -827,14 +827,22 @@ export const AdminDashboard: React.FC = () => {
                               onChange={(e) => handleStatusUpdate(booking.id, e.target.value)}
                               className={cn(
                                 "bg-transparent border-none text-[10px] font-bold uppercase tracking-widest focus:ring-0 cursor-pointer",
-                                booking.status === 'completed' ? "text-red-400" :
-                                booking.status === 'accepted' ? "text-yellow-500" :
+                                booking.status === 'completed' ? "text-green-400" :
+                                booking.status === 'pending' ? "text-purple-400" :
+                                booking.status === 'accepted' ? "text-indigo-400" :
+                                booking.status === 'on_the_way' ? "text-yellow-500" :
+                                booking.status === 'in_progress' ? "text-orange-500" :
+                                booking.status === 'cancelled' ? "text-red-400" :
                                 "text-gray-400"
                               )}
                             >
                               <option value="pending">Pending</option>
+                              <option value="assigned">Assigned</option>
                               <option value="accepted">Accepted</option>
+                              <option value="on_the_way">On Way</option>
+                              <option value="in_progress">In Progress</option>
                               <option value="completed">Completed</option>
+                              <option value="cancelled">Cancelled</option>
                             </select>
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-400">{formatDate(booking.created_at)}</td>
@@ -923,11 +931,15 @@ export const AdminDashboard: React.FC = () => {
                   <div>
                     <span className={cn(
                       "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border mb-4 inline-block",
-                      selectedBooking.status === 'completed' ? "bg-red-500/10 text-red-500 border-red-500/20" :
-                      selectedBooking.status === 'accepted' ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/20" :
+                      selectedBooking.status === 'completed' ? "bg-green-500/10 text-green-500 border-green-500/20" :
+                      selectedBooking.status === 'pending' ? "bg-purple-500/10 text-purple-500 border-purple-500/20" :
+                      selectedBooking.status === 'accepted' ? "bg-indigo-500/10 text-indigo-500 border-indigo-500/20" :
+                      selectedBooking.status === 'on_the_way' ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/20" :
+                      selectedBooking.status === 'in_progress' ? "bg-orange-500/10 text-orange-500 border-orange-500/20" :
+                      selectedBooking.status === 'cancelled' ? "bg-red-500/10 text-red-500 border-red-500/20" :
                       "bg-blue-500/10 text-blue-500 border-blue-500/20"
                     )}>
-                      {selectedBooking.status}
+                      {selectedBooking.status.replace('_', ' ')}
                     </span>
                     <h3 className="text-3xl font-black tracking-tight">Booking Details</h3>
                     <p className="text-gray-500 mt-1 font-medium">ID: {selectedBooking.id.substring(0, 8)}...</p>

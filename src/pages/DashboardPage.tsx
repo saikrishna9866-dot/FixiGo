@@ -124,11 +124,16 @@ export const DashboardPage: React.FC = () => {
                     <td className="px-6 py-4">
                       <span className={cn(
                         "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider",
-                        booking.status === 'pending' ? "bg-yellow-100 text-yellow-800" :
-                        booking.status === 'accepted' ? "bg-blue-100 text-blue-800" :
-                        "bg-green-100 text-green-800"
+                        booking.status === 'pending' ? "bg-purple-100 text-purple-800" :
+                        booking.status === 'assigned' ? "bg-blue-100 text-blue-800" :
+                        booking.status === 'accepted' ? "bg-indigo-100 text-indigo-800" :
+                        booking.status === 'on_the_way' ? "bg-yellow-100 text-yellow-800" :
+                        booking.status === 'in_progress' ? "bg-orange-100 text-orange-800" :
+                        booking.status === 'completed' ? "bg-green-100 text-green-800" :
+                        booking.status === 'cancelled' ? "bg-red-100 text-red-800" :
+                        "bg-gray-100 text-gray-800"
                       )}>
-                        {booking.status}
+                        {booking.status.replace('_', ' ')}
                       </span>
                     </td>
                     <td className="px-6 py-4">

@@ -44,7 +44,7 @@ import { useAuth } from '../context/AuthContext';
 
 // --- Types & Constants ---
 
-type JobStatus = 'assigned' | 'accepted' | 'on_the_way' | 'in_progress' | 'completed' | 'cancelled';
+type JobStatus = 'pending' | 'assigned' | 'accepted' | 'on_the_way' | 'in_progress' | 'completed' | 'cancelled';
 
 interface Job {
   id: string;
@@ -61,9 +61,11 @@ interface Job {
   description: string;
   distance: string;
   expires_at: number; // timestamp
+  is_open_pool?: boolean;
 }
 
 const STATUS_FLOW: Record<JobStatus, { next?: JobStatus; label: string; color: string; action?: string }> = {
+  pending: { next: 'accepted', label: 'Open Job', color: 'bg-purple-50 text-purple-600 border-purple-100', action: 'Claim Job' },
   assigned: { next: 'accepted', label: 'Assigned', color: 'bg-blue-50 text-blue-600 border-blue-100', action: 'Accept Job' },
   accepted: { next: 'on_the_way', label: 'Accepted', color: 'bg-indigo-50 text-indigo-600 border-indigo-100', action: 'Start Journey' },
   on_the_way: { next: 'in_progress', label: 'On the Way', color: 'bg-yellow-50 text-yellow-600 border-yellow-100', action: 'Arrived & Start' },
@@ -418,6 +420,9 @@ export const ProviderDashboard: React.FC = () => {
 
   const fetchBookings = async (providerId: string) => {
     try {
+      // Fetch both:
+      // 1. Bookings already assigned to this provider
+      // 2. All pending bookings (the "Open Pool")
       const { data, error } = await supabase
         .from('bookings')
         .select(`
@@ -425,7 +430,7 @@ export const ProviderDashboard: React.FC = () => {
           services (title, description),
           user_profiles:user_id (full_name, phone)
         `)
-        .eq('provider_id', providerId)
+        .or(`provider_id.eq.${providerId},status.eq.pending`)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -444,8 +449,9 @@ export const ProviderDashboard: React.FC = () => {
           commission: (b.total_price || 0) * 0.2,
           net_earnings: (b.total_price || 0) * 0.8,
           description: b.notes || b.services?.description || '',
-          distance: 'N/A', // We don't have distance in DB yet
-          expires_at: Date.now() + 1000 * 60 * 60 // Default 1 hour for demo
+          distance: 'N/A',
+          expires_at: Date.now() + 1000 * 60 * 60,
+          is_open_pool: !b.provider_id || b.provider_id !== providerId
         }));
         setBookings(mappedBookings);
       }
@@ -476,19 +482,18 @@ export const ProviderDashboard: React.FC = () => {
         setIsOnline(providerData.availability?.is_online ?? true);
         await fetchBookings(providerData.id);
         
-        // Set up real-time subscription for this provider's bookings
+        // Set up real-time subscription for all bookings to see new open jobs
         const bookingsChannel = supabase
-          .channel(`provider-bookings-${providerData.id}`)
+          .channel(`provider-dashboard-updates`)
           .on(
             'postgres_changes',
             { 
               event: '*', 
               schema: 'public', 
-              table: 'bookings',
-              filter: `provider_id=eq.${providerData.id}`
+              table: 'bookings'
             },
             () => {
-              console.log('Real-time update: Provider bookings changed, refreshing data...');
+              console.log('Real-time update: Bookings changed, refreshing data...');
               fetchBookings(providerData.id);
             }
           )
@@ -540,15 +545,23 @@ export const ProviderDashboard: React.FC = () => {
 
   const handleStatusUpdate = async (jobId: string, newStatus: JobStatus) => {
     try {
+      const updateData: any = { status: newStatus };
+      
+      // If claiming an open job, assign this provider
+      const job = bookings.find(b => b.id === jobId);
+      if (job?.is_open_pool && newStatus === 'accepted') {
+        updateData.provider_id = provider.id;
+      }
+
       const { error } = await supabase
         .from('bookings')
-        .update({ status: newStatus })
+        .update(updateData)
         .eq('id', jobId);
 
       if (error) throw error;
 
       setBookings(prev => prev.map(job => 
-        job.id === jobId ? { ...job, status: newStatus } : job
+        job.id === jobId ? { ...job, status: newStatus, is_open_pool: false } : job
       ));
       
       toast.success(`Job status updated to ${STATUS_FLOW[newStatus].label}`);
