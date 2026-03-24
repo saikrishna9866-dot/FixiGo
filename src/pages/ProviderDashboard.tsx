@@ -386,7 +386,7 @@ export const ProviderDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(true);
   const [provider, setProvider] = useState<any>(null);
-  const [bookings, setBookings] = useState<Job[]>(MOCK_JOBS);
+  const [bookings, setBookings] = useState<Job[]>([]);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [notifications, setNotifications] = useState<any[]>([
     { id: 1, title: 'New Job Assigned', message: 'Deep Kitchen Cleaning at sector 45', time: '2 mins ago', unread: true },
@@ -416,6 +416,44 @@ export const ProviderDashboard: React.FC = () => {
 
   const isFetching = useRef(false);
 
+  const fetchBookings = async (providerId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('bookings')
+        .select(`
+          *,
+          services (title, description),
+          user_profiles:user_id (full_name, phone)
+        `)
+        .eq('provider_id', providerId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (data) {
+        const mappedBookings: Job[] = data.map((b: any) => ({
+          id: b.id,
+          service_name: b.services?.title || 'Unknown Service',
+          customer_name: b.user_profiles?.full_name || 'Customer',
+          customer_phone: b.user_profiles?.phone || 'N/A',
+          address: b.address || 'No address provided',
+          booking_date: b.booking_date,
+          booking_time: b.booking_time,
+          status: b.status as JobStatus,
+          price: b.total_price || 0,
+          commission: (b.total_price || 0) * 0.2,
+          net_earnings: (b.total_price || 0) * 0.8,
+          description: b.notes || b.services?.description || '',
+          distance: 'N/A', // We don't have distance in DB yet
+          expires_at: Date.now() + 1000 * 60 * 60 // Default 1 hour for demo
+        }));
+        setBookings(mappedBookings);
+      }
+    } catch (error) {
+      console.error('Error fetching bookings:', error);
+    }
+  };
+
   const fetchProviderData = async () => {
     if (isFetching.current) return;
     isFetching.current = true;
@@ -426,7 +464,7 @@ export const ProviderDashboard: React.FC = () => {
         return;
       }
 
-      // Try to fetch real provider data, but fallback to mock if table doesn't exist or user isn't there
+      // Try to fetch real provider data
       const { data: providerData, error: providerError } = await supabase
         .from('service_providers')
         .select(`*, services (title)`)
@@ -436,15 +474,40 @@ export const ProviderDashboard: React.FC = () => {
       if (providerData) {
         setProvider(providerData);
         setIsOnline(providerData.availability?.is_online ?? true);
+        await fetchBookings(providerData.id);
+        
+        // Set up real-time subscription for this provider's bookings
+        const bookingsChannel = supabase
+          .channel(`provider-bookings-${providerData.id}`)
+          .on(
+            'postgres_changes',
+            { 
+              event: '*', 
+              schema: 'public', 
+              table: 'bookings',
+              filter: `provider_id=eq.${providerData.id}`
+            },
+            () => {
+              console.log('Real-time update: Provider bookings changed, refreshing data...');
+              fetchBookings(providerData.id);
+            }
+          )
+          .subscribe();
+
+        return () => {
+          supabase.removeChannel(bookingsChannel);
+        };
       } else {
-        // Mock provider for demo
+        // Mock provider for demo if not found
         setProvider({
+          id: 'mock-id',
           name: user.email?.split('@')[0] || 'Partner',
           services: { title: 'Multi-Service Expert' },
           experience: '5+ Years',
           phone: '+91 99887 76655',
           email: user.email
         });
+        setBookings(MOCK_JOBS);
       }
 
     } catch (error: any) {
@@ -457,28 +520,48 @@ export const ProviderDashboard: React.FC = () => {
   };
 
   useEffect(() => {
+    let cleanup: (() => void) | undefined;
+    
     if (user) {
-      fetchProviderData();
+      fetchProviderData().then(unsub => {
+        if (typeof unsub === 'function') {
+          cleanup = unsub;
+        }
+      });
     } else {
       setLoading(false);
     }
+    
     return () => {
       isFetching.current = false;
+      if (cleanup) cleanup();
     };
   }, [user]);
 
-  const handleStatusUpdate = (jobId: string, newStatus: JobStatus) => {
-    setBookings(prev => prev.map(job => 
-      job.id === jobId ? { ...job, status: newStatus } : job
-    ));
-    
-    toast.success(`Job status updated to ${STATUS_FLOW[newStatus].label}`);
-    
-    // Add notification
-    setNotifications(prev => [
-      { id: Date.now(), title: 'Status Updated', message: `Job #${jobId} is now ${STATUS_FLOW[newStatus].label}`, time: 'Just now', unread: true },
-      ...prev
-    ]);
+  const handleStatusUpdate = async (jobId: string, newStatus: JobStatus) => {
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({ status: newStatus })
+        .eq('id', jobId);
+
+      if (error) throw error;
+
+      setBookings(prev => prev.map(job => 
+        job.id === jobId ? { ...job, status: newStatus } : job
+      ));
+      
+      toast.success(`Job status updated to ${STATUS_FLOW[newStatus].label}`);
+      
+      // Add notification
+      setNotifications(prev => [
+        { id: Date.now(), title: 'Status Updated', message: `Job #${jobId} is now ${STATUS_FLOW[newStatus].label}`, time: 'Just now', unread: true },
+        ...prev
+      ]);
+    } catch (error) {
+      console.error('Error updating status:', error);
+      toast.error('Failed to update status');
+    }
   };
 
   const handleLogout = async () => {

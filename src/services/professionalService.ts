@@ -49,5 +49,28 @@ export const professionalService = {
       console.error('Error in registerProfessional:', error);
       throw error;
     }
+  },
+
+  /**
+   * Checks if a user is already a professional
+   */
+  async isProfessional(userId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('service_providers')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Error checking professional status:', error);
+        return false;
+      }
+      
+      return !!data;
+    } catch (error) {
+      console.error('Error in isProfessional:', error);
+      return false;
+    }
   }
 };

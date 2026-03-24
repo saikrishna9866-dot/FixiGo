@@ -415,29 +415,36 @@ export const LandingPage: React.FC = () => {
 
 
       {/* Become a Pro CTA */}
-      <section className="py-20 bg-yellow-500 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-black via-transparent to-transparent"></div>
-        </div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
-          <span className="text-black font-black uppercase tracking-[0.3em] text-xs mb-4 block">Join the Network</span>
-          <h2 className="text-3xl md:text-5xl font-black text-black mb-6 leading-tight">Grow Your Business <br /> with FixiGo</h2>
-          <p className="text-black/70 text-lg mb-8 max-w-2xl mx-auto font-medium leading-relaxed">
-            Are you a service professional? Join 500+ experts and start getting bookings in your area today.
-          </p>
-          <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Link
-              to="/register-professional"
-              className="bg-black text-white px-8 py-4 rounded-2xl font-black text-lg hover:bg-gray-800 transition-all shadow-2xl active:scale-95 flex items-center justify-center"
-            >
-              Become a Pro <ArrowRight size={20} className="ml-2" />
-            </Link>
-            <Link
-              to="/contact"
-              className="bg-white text-black px-8 py-4 rounded-2xl font-black text-lg hover:bg-gray-50 transition-all shadow-xl active:scale-95"
-            >
-              Contact Us
-            </Link>
+      <section className="py-12 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-yellow-500 rounded-[3rem] p-8 md:p-16 relative overflow-hidden shadow-2xl shadow-yellow-200/50">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-black/5 rounded-full -mr-20 -mt-20 blur-3xl"></div>
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full -ml-20 -mb-20 blur-3xl"></div>
+            
+            <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-10">
+              <div className="text-center lg:text-left max-w-2xl">
+                <span className="text-black font-black uppercase tracking-[0.3em] text-[10px] mb-4 block">Partner with us</span>
+                <h2 className="text-3xl md:text-5xl font-black text-black mb-4 leading-tight">Grow Your Business <br className="hidden md:block" /> with FixiGo</h2>
+                <p className="text-black/70 text-base md:text-lg font-medium leading-relaxed">
+                  Join 500+ experts and start getting bookings in your area today.
+                </p>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+                <Link
+                  to="/register-professional"
+                  className="bg-black text-white px-8 py-4 rounded-2xl font-black text-base hover:bg-gray-800 transition-all shadow-xl active:scale-95 flex items-center justify-center whitespace-nowrap"
+                >
+                  Become a Pro <ArrowRight size={18} className="ml-2" />
+                </Link>
+                <Link
+                  to="/contact"
+                  className="bg-white/50 backdrop-blur-md text-black px-8 py-4 rounded-2xl font-black text-base hover:bg-white transition-all shadow-lg active:scale-95 flex items-center justify-center whitespace-nowrap"
+                >
+                  Contact Us
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </section>

@@ -13,7 +13,9 @@ export const SignupPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = location.state?.from?.pathname || '/login';
+  const searchParams = new URLSearchParams(location.search);
+  const redirect = searchParams.get('redirect');
+  const from = location.state?.from?.pathname || redirect || '/login';
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();

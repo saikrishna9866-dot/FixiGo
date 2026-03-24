@@ -12,6 +12,28 @@ export const DashboardPage: React.FC = () => {
   useEffect(() => {
     if (user) {
       fetchBookings();
+
+      // Set up real-time subscription for this user's bookings
+      const bookingsChannel = supabase
+        .channel(`user-bookings-${user.id}`)
+        .on(
+          'postgres_changes',
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'bookings',
+            filter: `user_id=eq.${user.id}`
+          },
+          () => {
+            console.log('Real-time update: User bookings changed, refreshing data...');
+            fetchBookings();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(bookingsChannel);
+      };
     } else {
       setLoading(false);
     }

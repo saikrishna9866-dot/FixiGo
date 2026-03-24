@@ -149,7 +149,22 @@ GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;`;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;
+ 
+ -- 5. Fix Foreign Key Constraints
+ ALTER TABLE bookings 
+   DROP CONSTRAINT IF EXISTS bookings_user_id_fkey,
+   ADD CONSTRAINT bookings_user_id_fkey 
+   FOREIGN KEY (user_id) 
+   REFERENCES users_profile(id) 
+   ON DELETE CASCADE;
+ 
+ ALTER TABLE bookings 
+   DROP CONSTRAINT IF EXISTS bookings_provider_id_fkey,
+   ADD CONSTRAINT bookings_provider_id_fkey 
+   FOREIGN KEY (provider_id) 
+   REFERENCES service_providers(id) 
+   ON DELETE SET NULL;`;
 
   return (
     <div className="bg-gray-900 rounded-3xl shadow-xl border border-gray-800 overflow-hidden mb-8">

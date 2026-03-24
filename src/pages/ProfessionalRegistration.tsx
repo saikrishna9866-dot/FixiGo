@@ -31,7 +31,9 @@ export const ProfessionalRegistration: React.FC = () => {
     name: '', email: '', phone: '',
     category_id: '', service_id: '', service_type: '', experience: '', skills: '',
     address: '', city: '', pincode: '',
-    working_days: [] as string[], time_slots: '09:00 AM - 06:00 PM'
+    working_days: [] as string[], time_slots: '09:00 AM - 06:00 PM',
+    id_proof: null as File | null,
+    profile_photo: null as File | null
   });
 
   const [isChecking, setIsChecking] = useState(true);
@@ -43,6 +45,14 @@ export const ProfessionalRegistration: React.FC = () => {
         const { data } = await safeGetSession();
         const session = data?.session;
         if (session?.user) {
+          // Check if already a professional
+          const isProf = await professionalService.isProfessional(session.user.id);
+          if (isProf) {
+            setAlreadyProfessional(true);
+            setIsChecking(false);
+            return;
+          }
+
           // Pre-fill data from profile
           const { data: profileData } = await supabase.from('users_profile')
             .select('full_name, email, phone')
@@ -57,6 +67,11 @@ export const ProfessionalRegistration: React.FC = () => {
               phone: profileData.phone || ''
             }));
           }
+        } else {
+          // Not logged in - redirect to login
+          toast.error('Please login to register as a professional');
+          navigate('/login?redirect=/register-professional');
+          return;
         }
       } catch (err) {
         console.error('Error checking professional status:', err);
@@ -66,7 +81,7 @@ export const ProfessionalRegistration: React.FC = () => {
     };
 
     checkProfessionalStatus();
-  }, []);
+  }, [navigate]);
 
   const categoryServices = formData.category_id 
     ? (services || []).filter(s => s.category_id === formData.category_id)
@@ -83,6 +98,14 @@ export const ProfessionalRegistration: React.FC = () => {
     });
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, field: 'id_proof' | 'profile_photo') => {
+    const file = e.target.files?.[0] || null;
+    setFormData(prev => ({ ...prev, [field]: file }));
+    if (file) {
+      toast.success(`${field === 'id_proof' ? 'ID Proof' : 'Profile Photo'} selected`);
+    }
+  };
+
   const nextStep = () => {
     if (step === 1 && (!formData.name || !formData.email)) {
       toast.error('Please fill in all basic details');
@@ -94,6 +117,10 @@ export const ProfessionalRegistration: React.FC = () => {
     }
     if (step === 3 && (!formData.address || !formData.city || !formData.pincode)) {
       toast.error('Please fill in your address details');
+      return;
+    }
+    if (step === 4 && (!formData.id_proof || !formData.profile_photo)) {
+      toast.error('Please upload both ID Proof and Profile Photo');
       return;
     }
     setStep(prev => Math.min(prev + 1, 5));
@@ -114,15 +141,54 @@ export const ProfessionalRegistration: React.FC = () => {
 
       const userId = session.user.id;
 
-      // 1. Update users_profile with professional details
+      // 1. Upload Documents to Storage if present
+      let idProofUrl = '';
+      let profilePhotoUrl = '';
+
+      if (formData.id_proof) {
+        const fileExt = formData.id_proof.name.split('.').pop();
+        const fileName = `${userId}-id-proof.${fileExt}`;
+        const filePath = `professionals/${fileName}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('services')
+          .upload(filePath, formData.id_proof, { upsert: true });
+          
+        if (!uploadError) {
+          const { data: { publicUrl } } = supabase.storage
+            .from('services')
+            .getPublicUrl(filePath);
+          idProofUrl = publicUrl;
+        }
+      }
+
+      if (formData.profile_photo) {
+        const fileExt = formData.profile_photo.name.split('.').pop();
+        const fileName = `${userId}-profile.${fileExt}`;
+        const filePath = `professionals/${fileName}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('services')
+          .upload(filePath, formData.profile_photo, { upsert: true });
+          
+        if (!uploadError) {
+          const { data: { publicUrl } } = supabase.storage
+            .from('services')
+            .getPublicUrl(filePath);
+          profilePhotoUrl = publicUrl;
+        }
+      }
+
+      // 2. Update users_profile with professional details
       await supabase.from('users_profile').upsert({
         id: userId,
         full_name: formData.name,
         email: formData.email,
         phone: formData.phone,
+        avatar_url: profilePhotoUrl || undefined
       });
 
-      // 2. Register Professional using service
+      // 3. Register Professional using service
       await professionalService.registerProfessional({
         userId: userId,
         serviceId: formData.service_id,
@@ -270,21 +336,60 @@ export const ProfessionalRegistration: React.FC = () => {
               <p className="text-gray-500 text-sm">Verification is required for trust</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <label className="group relative flex flex-col items-center justify-center p-10 border-2 border-dashed border-gray-200 rounded-[2rem] cursor-pointer hover:border-yellow-500 hover:bg-yellow-50/30 transition-all">
-                <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-yellow-100 group-hover:scale-110 transition-all">
-                  <Upload className="text-gray-400 group-hover:text-yellow-600" size={24} />
+              <label className={cn(
+                "group relative flex flex-col items-center justify-center p-10 border-2 border-dashed rounded-[2rem] cursor-pointer transition-all",
+                formData.id_proof ? "border-green-500 bg-green-50/30" : "border-gray-200 hover:border-yellow-500 hover:bg-yellow-50/30"
+              )}>
+                <div className={cn(
+                  "w-16 h-16 rounded-2xl flex items-center justify-center mb-4 transition-all",
+                  formData.id_proof ? "bg-green-100 scale-110" : "bg-gray-50 group-hover:bg-yellow-100 group-hover:scale-110"
+                )}>
+                  {formData.id_proof ? (
+                    <CheckCircle className="text-green-600" size={24} />
+                  ) : (
+                    <Upload className="text-gray-400 group-hover:text-yellow-600" size={24} />
+                  )}
                 </div>
-                <span className="text-sm font-bold text-gray-600">ID Proof</span>
-                <span className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest">PDF or Image</span>
-                <input type="file" className="hidden" />
+                <span className="text-sm font-bold text-gray-600">
+                  {formData.id_proof ? formData.id_proof.name : 'ID Proof'}
+                </span>
+                <span className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest">
+                  {formData.id_proof ? 'File selected' : 'PDF or Image'}
+                </span>
+                <input 
+                  type="file" 
+                  className="hidden" 
+                  onChange={(e) => handleFileChange(e, 'id_proof')}
+                  accept="image/*,.pdf"
+                />
               </label>
-              <label className="group relative flex flex-col items-center justify-center p-10 border-2 border-dashed border-gray-200 rounded-[2rem] cursor-pointer hover:border-yellow-500 hover:bg-yellow-50/30 transition-all">
-                <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-yellow-100 group-hover:scale-110 transition-all">
-                  <User className="text-gray-400 group-hover:text-yellow-600" size={24} />
+              
+              <label className={cn(
+                "group relative flex flex-col items-center justify-center p-10 border-2 border-dashed rounded-[2rem] cursor-pointer transition-all",
+                formData.profile_photo ? "border-green-500 bg-green-50/30" : "border-gray-200 hover:border-yellow-500 hover:bg-yellow-50/30"
+              )}>
+                <div className={cn(
+                  "w-16 h-16 rounded-2xl flex items-center justify-center mb-4 transition-all",
+                  formData.profile_photo ? "bg-green-100 scale-110" : "bg-gray-50 group-hover:bg-yellow-100 group-hover:scale-110"
+                )}>
+                  {formData.profile_photo ? (
+                    <CheckCircle className="text-green-600" size={24} />
+                  ) : (
+                    <User className="text-gray-400 group-hover:text-yellow-600" size={24} />
+                  )}
                 </div>
-                <span className="text-sm font-bold text-gray-600">Profile Photo</span>
-                <span className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest">JPG or PNG</span>
-                <input type="file" className="hidden" />
+                <span className="text-sm font-bold text-gray-600">
+                  {formData.profile_photo ? formData.profile_photo.name : 'Profile Photo'}
+                </span>
+                <span className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest">
+                  {formData.profile_photo ? 'File selected' : 'JPG or PNG'}
+                </span>
+                <input 
+                  type="file" 
+                  className="hidden" 
+                  onChange={(e) => handleFileChange(e, 'profile_photo')}
+                  accept="image/*"
+                />
               </label>
             </div>
           </div>

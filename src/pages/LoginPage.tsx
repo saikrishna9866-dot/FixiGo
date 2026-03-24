@@ -12,7 +12,9 @@ export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = location.state?.from?.pathname || '/';
+  const searchParams = new URLSearchParams(location.search);
+  const redirect = searchParams.get('redirect');
+  const from = location.state?.from?.pathname || redirect || '/';
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

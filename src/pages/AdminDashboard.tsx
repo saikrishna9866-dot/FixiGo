@@ -69,6 +69,8 @@ export const AdminDashboard: React.FC = () => {
   const [editingItem, setEditingItem] = useState<any>(null);
   const [formData, setFormData] = useState<any>({});
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string | string[], table: string, label: string } | null>(null);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [testError, setTestError] = useState<string | null>(null);
@@ -97,6 +99,23 @@ export const AdminDashboard: React.FC = () => {
     }
     fetchAllData();
     testConnection();
+
+    // Set up real-time subscription for bookings
+    const bookingsChannel = supabaseAdmin
+      .channel('admin-bookings-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'bookings' },
+        () => {
+          console.log('Real-time update: Bookings changed, refreshing data...');
+          fetchAllData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabaseAdmin.removeChannel(bookingsChannel);
+    };
   }, []);
 
   const fetchAllData = async () => {
@@ -252,19 +271,66 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: string, table: string) => {
-    if (!confirm('Are you sure you want to delete this?')) return;
+  const handleDelete = (id: string, table: string, label: string) => {
+    setDeleteConfirm({ id, table, label });
+  };
+
+  const performDelete = async () => {
+    if (!deleteConfirm) return;
+    
+    setLoading(true);
     try {
-      const { error } = await supabaseAdmin
-        .from(table)
-        .delete()
-        .eq('id', id);
-      if (error) throw error;
-      toast.success('Deleted successfully');
+      const idsToDelete = Array.isArray(deleteConfirm.id) ? deleteConfirm.id : [deleteConfirm.id];
+      
+      for (const id of idsToDelete) {
+        // If deleting a user, we should also delete their bookings first to avoid foreign key constraints
+        if (deleteConfirm.table === 'users_profile') {
+          const { error: bookingsError } = await supabaseAdmin
+            .from('bookings')
+            .delete()
+            .eq('user_id', id);
+            
+          if (bookingsError) {
+            console.warn(`Failed to delete bookings for user ${id}:`, bookingsError);
+          }
+
+          // Also delete from Auth
+          const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(id);
+          if (authError) {
+            console.warn(`Auth deletion failed for ${id}:`, authError);
+          }
+        }
+
+        // If deleting a service provider, we should handle their bookings
+        if (deleteConfirm.table === 'service_providers') {
+          // We'll set provider_id to null for their bookings instead of deleting the bookings
+          const { error: bookingsError } = await supabaseAdmin
+            .from('bookings')
+            .update({ provider_id: null })
+            .eq('provider_id', id);
+            
+          if (bookingsError) {
+            console.warn(`Failed to update bookings for provider ${id}:`, bookingsError);
+          }
+        }
+
+        const { error } = await supabaseAdmin
+          .from(deleteConfirm.table)
+          .delete()
+          .eq('id', id);
+          
+        if (error) throw error;
+      }
+      
+      toast.success(`${deleteConfirm.label} deleted successfully`);
+      setDeleteConfirm(null);
+      setSelectedUsers([]);
       fetchAllData();
     } catch (error: any) {
       console.error('Error deleting:', error);
       toast.error('Failed to delete: ' + error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -536,7 +602,7 @@ export const AdminDashboard: React.FC = () => {
                     </div>
                     <div className="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button onClick={() => openModal('category', cat)} className="p-2 bg-gray-800 rounded-lg text-yellow-500 hover:bg-gray-700"><Edit2 size={16} /></button>
-                      <button onClick={() => handleDelete(cat.id, 'categories')} className="p-2 bg-gray-800 rounded-lg text-red-400 hover:bg-gray-700"><Trash2 size={16} /></button>
+                      <button onClick={() => handleDelete(cat.id, 'categories', cat.name)} className="p-2 bg-gray-800 rounded-lg text-red-400 hover:bg-gray-700"><Trash2 size={16} /></button>
                     </div>
                   </div>
                 ))}
@@ -587,7 +653,7 @@ export const AdminDashboard: React.FC = () => {
                         <td className="px-6 py-4 text-right">
                           <div className="flex justify-end space-x-2">
                             <button onClick={() => openModal('service', ser)} className="p-2 bg-gray-800 rounded-lg text-yellow-500 hover:bg-gray-700"><Edit2 size={16} /></button>
-                            <button onClick={() => handleDelete(ser.id, 'services')} className="p-2 bg-gray-800 rounded-lg text-red-400 hover:bg-gray-700"><Trash2 size={16} /></button>
+                            <button onClick={() => handleDelete(ser.id, 'services', ser.title)} className="p-2 bg-gray-800 rounded-lg text-red-400 hover:bg-gray-700"><Trash2 size={16} /></button>
                           </div>
                         </td>
                       </tr>
@@ -599,11 +665,44 @@ export const AdminDashboard: React.FC = () => {
           )}
 
           {activeTab === 'users' && (
-            <motion.div key="users" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <motion.div key="users" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center space-x-4">
+                  <h3 className="text-xl font-bold">Manage Users</h3>
+                  {selectedUsers.length > 0 && (
+                    <span className="bg-yellow-500/10 text-yellow-500 px-3 py-1 rounded-full text-xs font-bold border border-yellow-500/20">
+                      {selectedUsers.length} selected
+                    </span>
+                  )}
+                </div>
+                {selectedUsers.length > 0 && (
+                  <button
+                    onClick={() => handleDelete(selectedUsers, 'users_profile', `${selectedUsers.length} users`)}
+                    className="bg-red-600 text-white px-6 py-3 rounded-xl font-bold flex items-center space-x-2 hover:bg-red-700 transition-all shadow-xl shadow-red-600/20"
+                  >
+                    <Trash2 size={18} />
+                    <span>Delete Selected</span>
+                  </button>
+                )}
+              </div>
               <div className="bg-gray-900 rounded-3xl border border-gray-800 overflow-hidden shadow-xl">
                 <table className="w-full text-left">
                   <thead className="bg-gray-800/50 text-gray-400 text-xs uppercase tracking-widest">
                     <tr>
+                      <th className="px-6 py-4 w-10">
+                        <input
+                          type="checkbox"
+                          className="rounded border-gray-700 bg-gray-800 text-yellow-500 focus:ring-yellow-500"
+                          checked={selectedUsers.length === users.length && users.length > 0}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedUsers(users.map(u => u.id));
+                            } else {
+                              setSelectedUsers([]);
+                            }
+                          }}
+                        />
+                      </th>
                       <th className="px-6 py-4">User</th>
                       <th className="px-6 py-4">Full Name</th>
                       <th className="px-6 py-4">Joined Date</th>
@@ -612,7 +711,24 @@ export const AdminDashboard: React.FC = () => {
                   </thead>
                   <tbody className="divide-y divide-gray-800">
                     {users.map((user) => (
-                      <tr key={user.id} className="hover:bg-gray-800/30 transition-colors">
+                      <tr key={user.id} className={cn(
+                        "hover:bg-gray-800/30 transition-colors",
+                        selectedUsers.includes(user.id) && "bg-yellow-500/5"
+                      )}>
+                        <td className="px-6 py-4">
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-700 bg-gray-800 text-yellow-500 focus:ring-yellow-500"
+                            checked={selectedUsers.includes(user.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedUsers(prev => [...prev, user.id]);
+                              } else {
+                                setSelectedUsers(prev => prev.filter(id => id !== user.id));
+                              }
+                            }}
+                          />
+                        </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center space-x-3">
                             <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 font-bold text-xs">
@@ -624,7 +740,7 @@ export const AdminDashboard: React.FC = () => {
                         <td className="px-6 py-4 text-sm text-gray-300">{user.full_name || 'N/A'}</td>
                         <td className="px-6 py-4 text-sm text-gray-400">{formatDate(user.created_at)}</td>
                         <td className="px-6 py-4 text-right">
-                          <button onClick={() => handleDelete(user.id, 'users_profile')} className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                          <button onClick={() => handleDelete(user.id, 'users_profile', user.email)} className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
                             <Trash2 size={16} />
                           </button>
                         </td>
@@ -672,7 +788,7 @@ export const AdminDashboard: React.FC = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <button onClick={() => handleDelete(prov.id, 'service_providers')} className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                          <button onClick={() => handleDelete(prov.id, 'service_providers', prov.name)} className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
                             <Trash2 size={16} />
                           </button>
                         </td>
@@ -740,6 +856,50 @@ export const AdminDashboard: React.FC = () => {
           )}
         </AnimatePresence>
       </main>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {deleteConfirm && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setDeleteConfirm(null)}
+              className="absolute inset-0 bg-black/90 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md bg-gray-900 rounded-[32px] border border-gray-800 shadow-2xl overflow-hidden p-10 text-center"
+            >
+              <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-500/20">
+                <Trash2 className="text-red-500" size={32} />
+              </div>
+              <h3 className="text-2xl font-black mb-4">Confirm Delete</h3>
+              <p className="text-gray-400 mb-8 leading-relaxed">
+                Are you sure you want to delete <span className="text-white font-bold">"{deleteConfirm.label}"</span>? This action cannot be undone.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <button
+                  onClick={() => setDeleteConfirm(null)}
+                  className="flex-1 px-8 py-4 bg-gray-800 text-white rounded-2xl font-bold hover:bg-gray-700 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={performDelete}
+                  disabled={loading}
+                  className="flex-1 px-8 py-4 bg-red-600 text-white rounded-2xl font-bold hover:bg-red-700 transition-all shadow-xl shadow-red-600/20 flex items-center justify-center"
+                >
+                  {loading ? <Loader2 className="animate-spin mr-2" size={18} /> : 'Delete Now'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Booking View Modal */}
       <AnimatePresence>
