@@ -464,7 +464,7 @@ export const LandingPage: React.FC = () => {
             ].map((item, idx) => (
               <div key={idx} className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all text-left">
                 <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center mb-6">
-                  {React.cloneElement(item.icon as React.ReactElement, { size: 24 })}
+                  {React.cloneElement(item.icon as any, { size: 24 })}
                 </div>
                 <h4 className="text-lg font-black text-black mb-2">{item.title}</h4>
                 <p className="text-gray-500 text-sm font-medium leading-relaxed">{item.desc}</p>

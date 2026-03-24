@@ -460,86 +460,75 @@ export const ProviderDashboard: React.FC = () => {
     }
   };
 
-  const fetchProviderData = async () => {
-    if (isFetching.current) return;
-    isFetching.current = true;
-
-    try {
-      if (!user) {
-        navigate('/provider/login');
-        return;
-      }
-
-      // Try to fetch real provider data
-      const { data: providerData, error: providerError } = await supabase
-        .from('service_providers')
-        .select(`*, services (title)`)
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (providerData) {
-        setProvider(providerData);
-        setIsOnline(providerData.availability?.is_online ?? true);
-        await fetchBookings(providerData.id);
-        
-        // Set up real-time subscription for all bookings to see new open jobs
-        const bookingsChannel = supabase
-          .channel(`provider-dashboard-updates`)
-          .on(
-            'postgres_changes',
-            { 
-              event: '*', 
-              schema: 'public', 
-              table: 'bookings'
-            },
-            () => {
-              console.log('Real-time update: Bookings changed, refreshing data...');
-              fetchBookings(providerData.id);
-            }
-          )
-          .subscribe();
-
-        return () => {
-          supabase.removeChannel(bookingsChannel);
-        };
-      } else {
-        // Mock provider for demo if not found
-        setProvider({
-          id: 'mock-id',
-          name: user.email?.split('@')[0] || 'Partner',
-          services: { title: 'Multi-Service Expert' },
-          experience: '5+ Years',
-          phone: '+91 99887 76655',
-          email: user.email
-        });
-        setBookings(MOCK_JOBS);
-      }
-
-    } catch (error: any) {
-      console.error('Error fetching dashboard data:', error);
-      toast.error('Failed to load dashboard data. Please refresh.');
-    } finally {
-      isFetching.current = false;
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    let cleanup: (() => void) | undefined;
+    let channel: any;
+    let mounted = true;
     
-    if (user) {
-      fetchProviderData().then(unsub => {
-        if (typeof unsub === 'function') {
-          cleanup = unsub;
+    const setup = async () => {
+      if (user) {
+        try {
+          if (isFetching.current) return;
+          isFetching.current = true;
+
+          // Try to fetch real provider data
+          const { data: providerData } = await supabase
+            .from('service_providers')
+            .select(`*, services (title)`)
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+          if (!mounted) return;
+
+          if (providerData) {
+            setProvider(providerData);
+            setIsOnline(providerData.availability?.is_online ?? true);
+            await fetchBookings(providerData.id);
+            
+            if (!mounted) return;
+
+            // Set up real-time subscription
+            channel = supabase
+              .channel(`provider-dashboard-updates`)
+              .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'bookings' },
+                () => {
+                  if (mounted) fetchBookings(providerData.id);
+                }
+              )
+              .subscribe();
+          } else {
+            // Mock provider for demo if not found
+            setProvider({
+              id: 'mock-id',
+              name: user.email?.split('@')[0] || 'Partner',
+              services: { title: 'Multi-Service Expert' },
+              experience: '5+ Years',
+              phone: '+91 99887 76655',
+              email: user.email
+            });
+            setBookings(MOCK_JOBS);
+          }
+        } catch (error) {
+          console.error('Error fetching dashboard data:', error);
+          if (mounted) toast.error('Failed to load dashboard data');
+        } finally {
+          if (mounted) {
+            isFetching.current = false;
+            setLoading(false);
+          }
         }
-      });
-    } else {
-      setLoading(false);
-    }
+      } else {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    setup();
     
     return () => {
+      mounted = false;
       isFetching.current = false;
-      if (cleanup) cleanup();
+      if (channel) supabase.removeChannel(channel);
     };
   }, [user]);
 

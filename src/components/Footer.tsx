@@ -1,8 +1,14 @@
 import React from 'react';
 import { Facebook, Twitter, Instagram, Linkedin } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 export const Footer: React.FC = () => {
+  const location = useLocation();
+
+  const isDashboard = location.pathname.startsWith('/admin') || location.pathname.startsWith('/provider') || location.pathname === '/dashboard';
+
+  if (isDashboard) return null;
+
   return (
     <footer className="bg-[#f5f5f5] text-[#1a1a1a] pt-16 pb-12 border-t border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

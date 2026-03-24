@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -19,7 +19,9 @@ import {
   Search,
   ChevronRight,
   X,
-  Loader2
+  Loader2,
+  Database,
+  ArrowRight
 } from 'lucide-react';
 import {
   LineChart,
@@ -107,7 +109,6 @@ export const AdminDashboard: React.FC = () => {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'bookings' },
         () => {
-          console.log('Real-time update: Bookings changed, refreshing data...');
           fetchAllData();
         }
       )
@@ -271,7 +272,7 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleDelete = (id: string, table: string, label: string) => {
+  const handleDelete = (id: string | string[], table: string, label: string) => {
     setDeleteConfirm({ id, table, label });
   };
 
@@ -367,41 +368,68 @@ export const AdminDashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 flex">
       {/* Sidebar */}
-      <aside className="w-64 bg-gray-900 border-r border-gray-800 flex flex-col fixed h-full">
-        <div className="p-8">
-          <h2 className="text-2xl font-bold text-yellow-500 text-center">FixiGo Admin</h2>
+      <aside className="w-64 bg-gray-900 border-r border-gray-800 flex flex-col fixed h-full z-50">
+        <div className="p-8 flex items-center justify-center border-b border-gray-800/50">
+          <Link to="/" className="flex items-center space-x-3 group">
+            <div className="bg-yellow-500 text-black w-10 h-10 flex items-center justify-center rounded-xl font-black text-xl shadow-lg shadow-yellow-500/20 group-hover:scale-110 transition-transform">F</div>
+            <div className="flex flex-col">
+              <span className="text-xl font-black tracking-tighter text-white leading-none">
+                Fixi<span className="text-yellow-500">Go</span>
+              </span>
+              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">Admin Panel</span>
+            </div>
+          </Link>
         </div>
-        <nav className="flex-1 px-4 space-y-2">
-          {[
-            { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-            { id: 'categories', label: 'Categories', icon: Grid },
-            { id: 'services', label: 'Services', icon: Wrench },
-            { id: 'users', label: 'Users', icon: Users },
-            { id: 'providers', label: 'Providers', icon: HardHat },
-            { id: 'bookings', label: 'Bookings', icon: ShoppingBag },
-          ].map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={cn(
-                "w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all",
-                activeTab === item.id
-                  ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20"
-                  : "text-gray-400 hover:bg-gray-800 hover:text-gray-100"
-              )}
+
+        <div className="flex-1 overflow-y-auto py-8 px-4 custom-scrollbar">
+          <div className="space-y-1">
+            <p className="px-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4">Main Navigation</p>
+            {[
+              { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+              { id: 'categories', label: 'Categories', icon: Grid },
+              { id: 'services', label: 'Services', icon: Wrench },
+              { id: 'users', label: 'Users', icon: Users },
+              { id: 'providers', label: 'Providers', icon: HardHat },
+              { id: 'bookings', label: 'Bookings', icon: ShoppingBag },
+            ].map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={cn(
+                  "w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 group",
+                  activeTab === item.id
+                    ? "bg-yellow-500 text-black shadow-lg shadow-yellow-500/10"
+                    : "text-gray-400 hover:bg-gray-800/50 hover:text-white"
+                )}
+              >
+                <item.icon size={18} className={cn(
+                  "transition-transform duration-200",
+                  activeTab === item.id ? "scale-110" : "group-hover:scale-110"
+                )} />
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-10 space-y-1">
+            <p className="px-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4">External</p>
+            <Link
+              to="/"
+              className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold text-gray-400 hover:bg-gray-800/50 hover:text-white transition-all group"
             >
-              <item.icon size={18} />
-              <span>{item.label}</span>
-            </button>
-          ))}
-        </nav>
-        <div className="p-4 border-t border-gray-800">
+              <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+              <span>Back to Site</span>
+            </Link>
+          </div>
+        </div>
+
+        <div className="p-4 border-t border-gray-800/50 bg-gray-900/50 backdrop-blur-sm">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 transition-all"
+            className="w-full flex items-center justify-center space-x-3 px-4 py-3 rounded-xl text-sm font-bold text-rose-400 hover:bg-rose-500/10 hover:text-rose-500 transition-all border border-transparent hover:border-rose-500/20"
           >
             <LogOut size={18} />
-            <span>Logout</span>
+            <span>Sign Out</span>
           </button>
         </div>
       </aside>
@@ -409,61 +437,82 @@ export const AdminDashboard: React.FC = () => {
       {/* Main Content */}
       <main className="flex-1 ml-64 p-10">
         {/* Header */}
-        <header className="flex justify-between items-center mb-10">
-          <div>
-            <h1 className="text-3xl font-bold capitalize">{activeTab}</h1>
-            <p className="text-gray-400">Manage your platform data and operations</p>
-          </div>
-          <div className="flex items-center space-x-4">
-            <div className={`flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-bold border ${
-              testStatus === 'success' ? 'bg-green-900/20 text-green-500 border-green-900/30' : 
-              testStatus === 'error' ? 'bg-red-900/20 text-red-500 border-red-900/30' : 
-              'bg-gray-800 text-gray-400 border-gray-700'
-            }`}>
-              <div className={`w-1.5 h-1.5 rounded-full ${
-                testStatus === 'success' ? 'bg-green-500 animate-pulse' : 
-                testStatus === 'error' ? 'bg-red-500' : 
-                'bg-gray-500'
-              }`} />
-              <span>{testStatus === 'success' ? 'CONNECTED' : testStatus === 'error' ? 'CONNECTION FAILED' : 'NOT TESTED'}</span>
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12 pb-8 border-b border-gray-800/50">
+          <div className="space-y-1">
+            <div className="flex items-center gap-3">
+              <h1 className="text-4xl font-extrabold tracking-tight capitalize text-white">{activeTab}</h1>
+              <div className="px-2.5 py-0.5 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-[10px] font-bold text-yellow-500 uppercase tracking-wider">
+                Admin
+              </div>
             </div>
-            <button
-              onClick={async () => {
-                if (!confirm('Are you sure you want to clear ALL data? This cannot be undone.')) return;
-                setClearing(true);
-                const result = await clearDatabase();
-                setClearing(false);
-                if (result.success) {
-                  toast.success('Database cleared successfully');
-                  fetchAllData();
-                } else {
-                  toast.error('Failed to clear: ' + result.error);
-                }
-              }}
-              disabled={clearing || seeding}
-              className="bg-red-900/20 text-red-500 px-4 py-2 rounded-xl font-bold hover:bg-red-900/30 transition-all flex items-center space-x-2 border border-red-900/30"
-            >
-              {clearing ? <Loader2 className="animate-spin" size={16} /> : <span>Clear All Data</span>}
-            </button>
-            <button
-              onClick={async () => {
-                setSeeding(true);
-                const result = await seedDatabase();
-                setSeeding(false);
-                if (result.success) {
-                  toast.success('Database seeded successfully');
-                  fetchAllData();
-                } else {
-                  toast.error('Failed to seed: ' + result.error);
-                }
-              }}
-              disabled={seeding || clearing}
-              className="bg-yellow-500 text-black px-4 py-2 rounded-xl font-bold hover:bg-yellow-400 transition-all flex items-center space-x-2"
-            >
-              {seeding ? <Loader2 className="animate-spin" size={16} /> : <span>Seed Demo Data</span>}
-            </button>
-            <div className="bg-gray-900 p-2 rounded-xl border border-gray-800">
-              <span className="text-xs font-bold text-yellow-500 px-2 uppercase tracking-widest">Live System</span>
+            <p className="text-gray-400 text-sm font-medium">Manage your platform data, users, and system operations.</p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            {/* System Status Group */}
+            <div className="flex items-center gap-2 mr-2 pr-4 border-r border-gray-800/50">
+              <div className={cn(
+                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-300",
+                testStatus === 'success' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 
+                testStatus === 'error' ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' : 
+                'bg-gray-800/50 text-gray-400 border-gray-700/50'
+              )}>
+                <div className={cn(
+                  "w-1.5 h-1.5 rounded-full",
+                  testStatus === 'success' ? 'bg-emerald-500 animate-pulse' : 
+                  testStatus === 'error' ? 'bg-rose-500' : 
+                  'bg-gray-500'
+                )} />
+                <span className="uppercase tracking-widest">
+                  {testStatus === 'success' ? 'Database Connected' : testStatus === 'error' ? 'Connection Failed' : 'Checking Connection...'}
+                </span>
+              </div>
+              
+              <div className="px-3 py-1.5 rounded-lg bg-gray-800/50 border border-gray-700/50 text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+                Live System
+              </div>
+            </div>
+
+            {/* Actions Group */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={async () => {
+                  if (!confirm('Are you sure you want to clear ALL data? This cannot be undone.')) return;
+                  setClearing(true);
+                  const result = await clearDatabase();
+                  setClearing(false);
+                  if (result.success) {
+                    toast.success('Database cleared successfully');
+                    fetchAllData();
+                  } else {
+                    toast.error('Failed to clear: ' + result.error);
+                  }
+                }}
+                disabled={clearing || seeding}
+                className="group relative px-4 py-2 rounded-xl text-xs font-bold text-rose-500 bg-rose-500/5 border border-rose-500/10 hover:bg-rose-500/10 hover:border-rose-500/20 transition-all disabled:opacity-50 flex items-center gap-2 overflow-hidden"
+              >
+                {clearing ? <Loader2 className="animate-spin" size={14} /> : <Trash2 size={14} className="group-hover:scale-110 transition-transform" />}
+                <span>Clear Data</span>
+              </button>
+
+              <button
+                onClick={async () => {
+                  setSeeding(true);
+                  const result = await seedDatabase();
+                  setSeeding(false);
+                  if (result.success) {
+                    toast.success('Database seeded successfully');
+                    fetchAllData();
+                  } else {
+                    toast.error('Failed to seed: ' + result.error);
+                  }
+                }}
+                disabled={seeding || clearing}
+                className="px-5 py-2 rounded-xl text-xs font-bold text-black bg-yellow-500 hover:bg-yellow-400 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-yellow-500/10"
+              >
+                {seeding ? <Loader2 className="animate-spin" size={14} /> : <Database size={14} />}
+                <span>Seed Demo</span>
+              </button>
             </div>
           </div>
         </header>

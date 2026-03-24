@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { Loader2, Calendar, User, Wrench, Clock } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '../lib/utils';
 
 export const DashboardPage: React.FC = () => {
   const [bookings, setBookings] = useState<any[]>([]);
@@ -10,11 +11,39 @@ export const DashboardPage: React.FC = () => {
   const { user } = useAuth();
 
   useEffect(() => {
+    let mounted = true;
+    let bookingsChannel: any;
+
+    const fetchBookings = async () => {
+      if (!user) return;
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('bookings')
+          .select(`
+            *,
+            services(title),
+            service_providers(name),
+            users_profile(full_name)
+          `)
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        if (mounted) setBookings(data || []);
+      } catch (error) {
+        console.error('Error fetching bookings:', error);
+        if (mounted) toast.error('Failed to load bookings');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
     if (user) {
       fetchBookings();
 
       // Set up real-time subscription for this user's bookings
-      const bookingsChannel = supabase
+      bookingsChannel = supabase
         .channel(`user-bookings-${user.id}`)
         .on(
           'postgres_changes',
@@ -25,44 +54,19 @@ export const DashboardPage: React.FC = () => {
             filter: `user_id=eq.${user.id}`
           },
           () => {
-            console.log('Real-time update: User bookings changed, refreshing data...');
-            fetchBookings();
+            if (mounted) fetchBookings();
           }
         )
         .subscribe();
-
-      return () => {
-        supabase.removeChannel(bookingsChannel);
-      };
     } else {
       setLoading(false);
     }
+
+    return () => {
+      mounted = false;
+      if (bookingsChannel) supabase.removeChannel(bookingsChannel);
+    };
   }, [user]);
-
-  const fetchBookings = async () => {
-    if (!user) return;
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('bookings')
-        .select(`
-          *,
-          services(title),
-          service_providers(name),
-          users_profile(full_name)
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setBookings(data || []);
-    } catch (error) {
-      console.error('Error fetching bookings:', error);
-      toast.error('Failed to load bookings');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -151,8 +155,3 @@ export const DashboardPage: React.FC = () => {
     </div>
   );
 };
-
-// Helper for class names
-function cn(...classes: string[]) {
-  return classes.filter(Boolean).join(' ');
-}

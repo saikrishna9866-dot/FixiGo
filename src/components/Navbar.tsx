@@ -22,6 +22,8 @@ export const Navbar: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const isDashboard = location.pathname.startsWith('/admin') || location.pathname.startsWith('/provider') || location.pathname === '/dashboard';
+
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
@@ -92,6 +94,8 @@ export const Navbar: React.FC = () => {
     { name: 'Home', path: '/' },
     { name: 'Services', path: '/services' },
   ];
+
+  if (isDashboard) return null;
 
   return (
     <nav className={cn(
