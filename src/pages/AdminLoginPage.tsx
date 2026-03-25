@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Lock, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { FixigoLogo } from '../components/FixigoLogo';
+import { BackButton } from '../components/BackButton';
 
 export const AdminLoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -23,7 +24,10 @@ export const AdminLoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-950 p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-950 p-4">
+      <div className="w-full max-w-md mb-6">
+        <BackButton to="/" label="Back to Home" variant="ghost" className="px-0 text-gray-400 hover:text-white hover:bg-transparent" />
+      </div>
       <div className="w-full max-w-md bg-gray-900 p-8 rounded-3xl border border-gray-800 shadow-2xl">
         <div className="flex justify-center mb-10">
           <FixigoLogo theme="dark" />

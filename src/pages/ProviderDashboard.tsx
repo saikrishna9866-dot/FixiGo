@@ -37,10 +37,11 @@ import {
 } from 'lucide-react';
 import { supabase, safeGetSession, safeSignOut } from '../lib/supabase';
 import { toast } from 'sonner';
-import { cn, formatDate } from '../lib/utils';
+import { cn, formatDate, isValidUuid } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { ProviderLogo } from '../components/ProviderLogo';
 import { useAuth } from '../context/AuthContext';
+import { BackButton } from '../components/BackButton';
 
 // --- Types & Constants ---
 
@@ -534,20 +535,30 @@ export const ProviderDashboard: React.FC = () => {
 
   const handleStatusUpdate = async (jobId: string, newStatus: JobStatus) => {
     try {
-      const updateData: any = { status: newStatus };
+      const isRealJob = isValidUuid(jobId);
       
-      // If claiming an open job, assign this provider
-      const job = bookings.find(b => b.id === jobId);
-      if (job?.is_open_pool && newStatus === 'accepted') {
-        updateData.provider_id = provider.id;
+      if (isRealJob) {
+        const updateData: any = { status: newStatus };
+        
+        // If claiming an open job, assign this provider
+        const job = bookings.find(b => b.id === jobId);
+        if (job?.is_open_pool && newStatus === 'accepted') {
+          // Only set provider_id if it's a real provider
+          if (provider?.id && isValidUuid(provider.id)) {
+            updateData.provider_id = provider.id;
+          } else {
+            // If it's a real job but we're a mock provider, we can't accept it in DB
+            throw new Error('You must be a registered professional to accept real jobs.');
+          }
+        }
+
+        const { error } = await supabase
+          .from('bookings')
+          .update(updateData)
+          .eq('id', jobId);
+
+        if (error) throw error;
       }
-
-      const { error } = await supabase
-        .from('bookings')
-        .update(updateData)
-        .eq('id', jobId);
-
-      if (error) throw error;
 
       setBookings(prev => prev.map(job => 
         job.id === jobId ? { ...job, status: newStatus, is_open_pool: false } : job
@@ -560,9 +571,9 @@ export const ProviderDashboard: React.FC = () => {
         { id: Date.now(), title: 'Status Updated', message: `Job #${jobId} is now ${STATUS_FLOW[newStatus].label}`, time: 'Just now', unread: true },
         ...prev
       ]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating status:', error);
-      toast.error('Failed to update status');
+      toast.error('Failed to update status: ' + (error.message || String(error)));
     }
   };
 
@@ -679,6 +690,9 @@ export const ProviderDashboard: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-1 p-6 lg:p-12">
+        <div className="mb-6">
+          <BackButton variant="ghost" className="px-0 hover:bg-transparent" />
+        </div>
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-12">
           <div>
             <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-2">

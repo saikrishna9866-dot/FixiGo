@@ -12,9 +12,54 @@ export interface BookingData {
   bookingTime: string;
   problemDescription: string;
   totalPrice: number;
+  problemImage?: string; // Base64 string from client
 }
 
 export const bookingService = {
+  /**
+   * Uploads a base64 image to Supabase Storage
+   */
+  async uploadBookingImage(base64Data: string, userId: string): Promise<string | null> {
+    try {
+      if (!base64Data || !base64Data.startsWith('data:image')) return null;
+
+      // Extract base64 content
+      const base64Content = base64Data.split(',')[1];
+      const mimeType = base64Data.split(';')[0].split(':')[1];
+      const extension = mimeType.split('/')[1];
+      
+      // Convert base64 to Blob
+      const byteCharacters = atob(base64Content);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: mimeType });
+
+      const fileName = `${userId}-${Date.now()}.${extension}`;
+      const filePath = `booking-images/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('bookings')
+        .upload(filePath, blob, {
+          contentType: mimeType,
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('bookings')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Error uploading booking image:', error);
+      return null;
+    }
+  },
+
   /**
    * Ensures a user profile exists in the users_profile table
    */
@@ -48,6 +93,17 @@ export const bookingService = {
   async createBooking(data: BookingData) {
     let actualServiceId = isValidUuid(data.serviceId) ? data.serviceId : null;
     let actualProviderId = isValidUuid(data.providerId) ? data.providerId : null;
+
+    // Upload image if provided
+    let imageUrl = null;
+    if (data.problemImage) {
+      try {
+        imageUrl = await this.uploadBookingImage(data.problemImage, data.userId);
+      } catch (uploadError) {
+        console.warn('Image upload failed, proceeding without image:', uploadError);
+        // We don't throw here, just proceed without the image
+      }
+    }
 
     // If we have a UUID, check if it actually exists in the database
     // to avoid foreign key constraint errors during demo/testing
@@ -87,7 +143,7 @@ export const bookingService = {
       }
     }
 
-    const { data: result, error } = await supabase.from('bookings').insert({
+    const bookingPayload: any = {
       user_id: data.userId,
       service_id: actualServiceId,
       provider_id: actualProviderId,
@@ -99,11 +155,27 @@ export const bookingService = {
       problem_description: data.problemDescription,
       total_price: data.totalPrice,
       status: 'pending'
-    }).select().single();
+    };
+
+    // Only add image_url if we successfully got one
+    if (imageUrl) {
+      bookingPayload.image_url = imageUrl;
+    }
+
+    let { data: result, error } = await supabase.from('bookings').insert(bookingPayload).select().single();
 
     if (error) {
       console.error('Booking submission error:', error);
       
+      // If the error is about the image_url column missing, try again without it
+      if (error.message.includes('image_url') && bookingPayload.image_url) {
+        console.warn('image_url column missing in bookings table. Retrying without image.');
+        delete bookingPayload.image_url;
+        const retry = await supabase.from('bookings').insert(bookingPayload).select().single();
+        if (retry.error) throw retry.error;
+        return retry.data;
+      }
+
       if (error.message.includes('uuid')) {
         throw new Error('Invalid ID format. Please ensure you are using real service and provider data.');
       }

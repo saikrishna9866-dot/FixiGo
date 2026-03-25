@@ -4,6 +4,7 @@ import { supabase, safeSignUp } from '../lib/supabase';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
 import { Mail, Lock, User, Loader2 } from 'lucide-react';
+import { BackButton } from '../components/BackButton';
 
 export const SignupPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -45,7 +46,10 @@ export const SignupPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 pt-20">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 pt-20 px-4">
+      <div className="w-full max-w-md mb-6">
+        <BackButton to="/" label="Back to Home" variant="ghost" className="px-0 hover:bg-transparent" />
+      </div>
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
         <h2 className="text-2xl font-bold mb-6">Sign Up</h2>
         <form onSubmit={handleSignup} className="space-y-4">

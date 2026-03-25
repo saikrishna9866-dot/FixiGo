@@ -4,6 +4,7 @@ import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react';
 import { supabase, safeSignInWithPassword } from '../lib/supabase';
 import { toast } from 'sonner';
 import { ProviderLogo } from '../components/ProviderLogo';
+import { BackButton } from '../components/BackButton';
 
 export const ProviderLoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -40,7 +41,10 @@ export const ProviderLoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4 pt-20">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4 pt-20">
+      <div className="w-full max-w-md mb-6">
+        <BackButton to="/" label="Back to Home" variant="ghost" className="px-0 hover:bg-transparent" />
+      </div>
       <div className="w-full max-w-md">
         <div className="text-center mb-10">
           <ProviderLogo className="justify-center mb-6" />

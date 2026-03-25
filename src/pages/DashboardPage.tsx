@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Loader2, Calendar, User, Wrench, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
+import { BackButton } from '../components/BackButton';
 
 export const DashboardPage: React.FC = () => {
   const [bookings, setBookings] = useState<any[]>([]);
@@ -79,6 +80,9 @@ export const DashboardPage: React.FC = () => {
   return (
     <div className="min-h-screen pt-24 pb-12 bg-gray-50">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mb-6">
+          <BackButton variant="ghost" className="px-0 hover:bg-transparent" />
+        </div>
         <h1 className="text-3xl font-bold text-gray-900 mb-8">My Bookings</h1>
         
         {bookings.length === 0 ? (

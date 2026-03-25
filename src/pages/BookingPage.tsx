@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, isValidUuid } from '../lib/utils';
+import { BackButton } from '../components/BackButton';
 
 const TIME_SLOTS = [
   '09:00 AM - 11:00 AM',
@@ -226,6 +227,10 @@ export const BookingPage: React.FC = () => {
     <div className="min-h-screen pt-24 pb-12 bg-gray-50">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         
+        <div className="mb-6">
+          <BackButton variant="ghost" className="px-0 hover:bg-transparent" />
+        </div>
+
         {/* Progress Bar */}
         {step < 5 && (
           <div className="mb-8">

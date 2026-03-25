@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Phone, Mail, MapPin, Clock, ShieldCheck, Zap, Clock4, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
+import { BackButton } from '../components/BackButton';
 
 export function ContactPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -59,6 +60,9 @@ export function ContactPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pt-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+        <BackButton variant="ghost" className="px-0 hover:bg-transparent" />
+      </div>
       {/* Hero Section */}
       <div className="bg-white py-16 md:py-24 border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">

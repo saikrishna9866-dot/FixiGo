@@ -5,6 +5,7 @@ import { Search, Star, MapPin, Loader2, ArrowRight, Clock } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useData } from '../context/DataContext';
 import { Service } from '../types';
+import { BackButton } from '../components/BackButton';
 
 const ServiceCard: React.FC<{ service: Service; onBook: (id: string) => void }> = ({ service, onBook }) => (
   <motion.div
@@ -73,6 +74,9 @@ export const ServicesPage: React.FC = () => {
   return (
     <div className="pt-24 pb-12 min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mb-6">
+          <BackButton variant="ghost" className="px-0 hover:bg-transparent" />
+        </div>
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-6">
           <div>
             <h1 className="text-4xl font-bold text-gray-900 mb-2 tracking-tight">Professional Services</h1>

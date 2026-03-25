@@ -37,6 +37,7 @@ import {
 import { toast } from 'sonner';
 import { formatDate, cn } from '../lib/utils';
 import { seedDatabase, clearDatabase } from '../lib/seed';
+import { BackButton } from '../components/BackButton';
 
 import { StatsGrid } from '../components/admin/StatsGrid';
 import { ConfigurationDebugger } from '../components/admin/ConfigurationDebugger';
@@ -436,6 +437,9 @@ export const AdminDashboard: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-1 ml-64 p-10">
+        <div className="mb-6">
+          <BackButton variant="ghost" className="px-0 hover:bg-transparent text-gray-400 hover:text-white" />
+        </div>
         {/* Header */}
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12 pb-8 border-b border-gray-800/50">
           <div className="space-y-1">

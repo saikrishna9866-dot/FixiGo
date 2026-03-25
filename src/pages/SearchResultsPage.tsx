@@ -4,6 +4,7 @@ import { motion } from 'motion/react';
 import { Star, Clock, ArrowRight, Loader2, AlertCircle, MapPin } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { Service } from '../types';
+import { BackButton } from '../components/BackButton';
 
 const ServiceResultCard: React.FC<{ service: Service; onBook: (id: string) => void }> = ({ service, onBook }) => (
   <motion.div
@@ -73,6 +74,9 @@ export const SearchResultsPage: React.FC = () => {
   return (
     <div className="pt-24 pb-12 min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mb-6">
+          <BackButton variant="ghost" className="px-0 hover:bg-transparent" />
+        </div>
         <div className="mb-12">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Search Results</h1>
           <p className="text-gray-500">Showing results for "{query}"</p>
