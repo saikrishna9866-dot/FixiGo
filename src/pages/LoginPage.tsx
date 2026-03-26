@@ -55,7 +55,7 @@ export const LoginPage: React.FC = () => {
           </button>
         </form>
         <p className="mt-4 text-center text-sm text-gray-600">
-          Don't have an account? <Link to="/signup" className="text-yellow-600 font-bold">Sign up</Link>
+          Don't have an account? <Link to={`/signup${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}`} className="text-yellow-600 font-bold">Sign up</Link>
         </p>
       </motion.div>
     </div>

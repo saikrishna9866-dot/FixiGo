@@ -70,7 +70,7 @@ export const SignupPage: React.FC = () => {
           </button>
         </form>
         <p className="mt-4 text-center text-sm text-gray-600">
-          Already have an account? <Link to="/login" className="text-yellow-600 font-bold">Login</Link>
+          Already have an account? <Link to={`/login${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}`} className="text-yellow-600 font-bold">Login</Link>
         </p>
         <p className="mt-6 text-[10px] text-gray-400 text-center uppercase tracking-widest leading-relaxed">
           Tip: If you hit email rate limits during testing, disable "Confirm Email" in your Supabase Auth settings.

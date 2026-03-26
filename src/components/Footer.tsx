@@ -74,6 +74,28 @@ export const Footer: React.FC = () => {
             </div>
           </div>
         </div>
+        <div className="mt-24 pt-16 border-t border-gray-100 flex flex-col items-center text-center">
+          <div className="mb-12 group">
+            <p className="text-[11px] font-black uppercase tracking-[0.6em] text-gray-400 mb-4 group-hover:text-yellow-600 transition-colors duration-500">
+              Designed and Developed By
+            </p>
+            <h3 className="text-4xl md:text-6xl font-black text-black tracking-tighter hover:scale-105 transition-all duration-500 cursor-default">
+              Sakrishna <span className="text-yellow-500">Tadi</span>
+            </h3>
+          </div>
+          
+          <div className="w-full flex flex-col md:flex-row justify-between items-center gap-6 pt-10 border-t border-gray-50">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">
+              © {new Date().getFullYear()} FixiGo. All rights reserved.
+            </p>
+            <div className="flex items-center space-x-3">
+              <div className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse"></div>
+              <span className="text-[10px] font-black text-black uppercase tracking-[0.3em]">
+                Crafting Digital Excellence
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
     </footer>
   );

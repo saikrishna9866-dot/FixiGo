@@ -162,6 +162,34 @@ export const seedDatabase = async () => {
       }
     }
 
+    // 5. Insert mock contact messages
+    const { data: existingMessages } = await supabaseAdmin.from('contact_messages').select('id').limit(1);
+    if (!existingMessages || existingMessages.length === 0) {
+      const messagesToInsert = [
+        {
+          full_name: 'Alice Johnson',
+          phone_number: '1234567890',
+          email: 'alice@example.com',
+          service_type: 'plumbing',
+          message: 'I have a leak in my bathroom. Can you help?',
+          status: 'pending'
+        },
+        {
+          full_name: 'Bob Smith',
+          phone_number: '0987654321',
+          email: 'bob@example.com',
+          service_type: 'electrician',
+          message: 'My lights are flickering. Is it dangerous?',
+          status: 'replied',
+          reply: 'Yes, it could be. We recommend scheduling an inspection immediately.'
+        }
+      ];
+      const { error: msgError } = await supabaseAdmin.from('contact_messages').insert(messagesToInsert);
+      if (msgError) {
+        console.warn('Failed to seed contact messages (table might not exist):', msgError.message);
+      }
+    }
+
     return { success: true };
   } catch (error: any) {
     console.error('Error seeding database:', error);
@@ -172,6 +200,7 @@ export const seedDatabase = async () => {
 export const clearDatabase = async () => {
   try {
     // Order matters because of foreign keys
+    await supabaseAdmin.from('contact_messages').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     await supabaseAdmin.from('bookings').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     await supabaseAdmin.from('service_providers').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     await supabaseAdmin.from('services').delete().neq('id', '00000000-0000-0000-0000-000000000000');

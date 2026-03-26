@@ -69,7 +69,7 @@ const STATUS_FLOW: Record<JobStatus, { next?: JobStatus; label: string; color: s
   pending: { next: 'accepted', label: 'Open Job', color: 'bg-purple-50 text-purple-600 border-purple-100', action: 'Claim Job' },
   assigned: { next: 'accepted', label: 'Assigned', color: 'bg-blue-50 text-blue-600 border-blue-100', action: 'Accept Job' },
   accepted: { next: 'on_the_way', label: 'Accepted', color: 'bg-indigo-50 text-indigo-600 border-indigo-100', action: 'Start Journey' },
-  on_the_way: { next: 'in_progress', label: 'On the Way', color: 'bg-yellow-50 text-yellow-600 border-yellow-100', action: 'Arrived & Start' },
+  on_the_way: { next: 'in_progress', label: 'On the Way', color: 'bg-yellow-50 text-yellow-600 border-yellow-100', action: 'Verify & Start' },
   in_progress: { next: 'completed', label: 'In Progress', color: 'bg-orange-50 text-orange-600 border-orange-100', action: 'Complete Job' },
   completed: { label: 'Completed', color: 'bg-green-50 text-green-600 border-green-100' },
   cancelled: { label: 'Cancelled', color: 'bg-red-50 text-red-600 border-red-100' }
@@ -380,6 +380,87 @@ const JobDetailsModal = ({ job, onClose, onUpdateStatus }: any) => {
   );
 };
 
+const VerificationModal = ({ job, onClose, onVerify }: any) => {
+  const [code, setCode] = useState('');
+  const [error, setError] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const expectedCode = job.id.split('-')[0].toUpperCase();
+    if (code.toUpperCase() === expectedCode) {
+      onVerify(job.id, 'in_progress');
+      onClose();
+    } else {
+      setError(true);
+      toast.error('Invalid Track Order Number. Please ask the customer for the correct code.');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 sm:p-6">
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="absolute inset-0 bg-slate-900/80 backdrop-blur-md"
+      />
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+        className="relative w-full max-w-md bg-white rounded-[3rem] shadow-2xl overflow-hidden"
+      >
+        <div className="p-10 text-center">
+          <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-8">
+            <ShieldCheck className="text-yellow-600" size={40} />
+          </div>
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-4">Verify to Start</h2>
+          <p className="text-slate-500 font-medium mb-8">
+            Please ask the customer for their <span className="text-slate-900 font-bold">Track Order Number</span> to begin the service.
+          </p>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <input 
+                type="text"
+                value={code}
+                onChange={(e) => {
+                  setCode(e.target.value);
+                  setError(false);
+                }}
+                placeholder="Enter Code (e.g. FA87603D)"
+                className={cn(
+                  "w-full px-6 py-5 rounded-2xl border-2 text-center text-xl font-black tracking-widest uppercase transition-all",
+                  error ? "border-red-500 bg-red-50" : "border-slate-100 focus:border-yellow-500 bg-slate-50"
+                )}
+                autoFocus
+              />
+              {error && <p className="text-red-500 text-xs font-bold mt-2 uppercase tracking-wider">Incorrect verification code</p>}
+            </div>
+
+            <div className="flex gap-3">
+              <button 
+                type="button"
+                onClick={onClose}
+                className="flex-1 py-5 bg-slate-50 text-slate-500 rounded-2xl font-bold hover:bg-slate-100 transition-all"
+              >
+                Cancel
+              </button>
+              <button 
+                type="submit"
+                className="flex-[2] bg-black text-white py-5 rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-xl shadow-slate-200"
+              >
+                Verify & Start Job
+              </button>
+            </div>
+          </form>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
 // --- Main Dashboard Page ---
 
 export const ProviderDashboard: React.FC = () => {
@@ -391,6 +472,7 @@ export const ProviderDashboard: React.FC = () => {
   const [provider, setProvider] = useState<any>(null);
   const [bookings, setBookings] = useState<Job[]>([]);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [verifyingJob, setVerifyingJob] = useState<Job | null>(null);
   const [notifications, setNotifications] = useState<any[]>([
     { id: 1, title: 'New Job Assigned', message: 'Deep Kitchen Cleaning at sector 45', time: '2 mins ago', unread: true },
     { id: 2, title: 'Payment Received', message: '₹480 credited for job #103', time: '1 hour ago', unread: false }
@@ -534,6 +616,15 @@ export const ProviderDashboard: React.FC = () => {
   }, [user]);
 
   const handleStatusUpdate = async (jobId: string, newStatus: JobStatus) => {
+    // Verification check for starting a job
+    if (newStatus === 'in_progress') {
+      const job = bookings.find(b => b.id === jobId);
+      if (job && !verifyingJob) {
+        setVerifyingJob(job);
+        return;
+      }
+    }
+
     try {
       const isRealJob = isValidUuid(jobId);
       
@@ -609,6 +700,13 @@ export const ProviderDashboard: React.FC = () => {
             job={selectedJob} 
             onClose={() => setSelectedJob(null)} 
             onUpdateStatus={handleStatusUpdate}
+          />
+        )}
+        {verifyingJob && (
+          <VerificationModal
+            job={verifyingJob}
+            onClose={() => setVerifyingJob(null)}
+            onVerify={handleStatusUpdate}
           />
         )}
       </AnimatePresence>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Phone, Mail, MapPin, Clock, ShieldCheck, Zap, Clock4, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { BackButton } from '../components/BackButton';
+import { supabase } from '../lib/supabase';
 
 export function ContactPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -37,18 +38,34 @@ export function ContactPage() {
     e.preventDefault();
     setIsSubmitting(true);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    toast.success('Message sent successfully! We will get back to you soon.');
-    setFormData({
-      fullName: '',
-      phoneNumber: '',
-      email: '',
-      serviceType: '',
-      message: ''
-    });
-    setIsSubmitting(false);
+    try {
+      const { error } = await supabase
+        .from('contact_messages')
+        .insert([{
+          full_name: formData.fullName,
+          phone_number: formData.phoneNumber,
+          email: formData.email,
+          service_type: formData.serviceType,
+          message: formData.message,
+          status: 'pending'
+        }]);
+
+      if (error) throw error;
+
+      toast.success('Message sent successfully! We will get back to you soon.');
+      setFormData({
+        fullName: '',
+        phoneNumber: '',
+        email: '',
+        serviceType: '',
+        message: ''
+      });
+    } catch (error: any) {
+      console.error('Error sending message:', error);
+      toast.error('Failed to send message. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {

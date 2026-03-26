@@ -64,3 +64,15 @@ export interface UserProfile {
   avatar_url: string | null;
   created_at: string;
 }
+
+export interface ContactMessage {
+  id: string;
+  full_name: string;
+  phone_number: string;
+  email: string;
+  service_type: string;
+  message: string;
+  reply: string | null;
+  status: 'pending' | 'replied';
+  created_at: string;
+}

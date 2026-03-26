@@ -4,7 +4,7 @@ import { supabase, safeGetUser } from '../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   MapPin, Calendar, Clock, FileText, User, Users, CreditCard, 
-  CheckCircle, ArrowRight, ArrowLeft, Star, ShieldCheck, AlertCircle, Loader2 
+  CheckCircle, ArrowRight, ArrowLeft, Star, ShieldCheck, AlertCircle, Loader2, X, Zap 
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, isValidUuid } from '../lib/utils';
@@ -50,7 +50,33 @@ export const BookingPage: React.FC = () => {
 
   useEffect(() => {
     fetchServiceDetails();
+    
+    // Restore pending booking data if available
+    const savedBooking = localStorage.getItem('pending_booking');
+    if (savedBooking) {
+      try {
+        const { serviceId: savedServiceId, formData: savedFormData, step: savedStep } = JSON.parse(savedBooking);
+        if (savedServiceId === serviceId) {
+          setFormData(savedFormData);
+          setStep(savedStep);
+          toast.info('Restored your previous booking details');
+        }
+      } catch (e) {
+        console.error('Error restoring pending booking:', e);
+      }
+    }
   }, [serviceId]);
+
+  // Save form data to localStorage on change
+  useEffect(() => {
+    if (serviceId && (formData.address || formData.date || formData.description)) {
+      localStorage.setItem('pending_booking', JSON.stringify({
+        serviceId,
+        formData,
+        step
+      }));
+    }
+  }, [formData, step, serviceId]);
 
   const fetchServiceDetails = async () => {
     if (!serviceId) return;
@@ -171,8 +197,14 @@ export const BookingPage: React.FC = () => {
       const { data } = await safeGetUser();
       const user = data?.user;
       if (!user) {
+        // Save form data before redirecting to login
+        localStorage.setItem('pending_booking', JSON.stringify({
+          serviceId,
+          formData,
+          step
+        }));
         toast.error('Please login to confirm booking');
-        navigate('/login');
+        navigate(`/login?redirect=${encodeURIComponent(`/book/${serviceId}`)}`);
         return;
       }
 
@@ -197,6 +229,9 @@ export const BookingPage: React.FC = () => {
         problemDescription: formData.description,
         totalPrice: totalPrice
       });
+      
+      // Clear pending booking on success
+      localStorage.removeItem('pending_booking');
       
       setBookingId(result.id);
       setStep(5); // Confirmation step
@@ -456,9 +491,10 @@ export const BookingPage: React.FC = () => {
                             <button 
                               type="button"
                               onClick={() => setFormData(prev => ({ ...prev, problemImage: '' }))}
-                              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                              className="absolute -top-2 -right-2 bg-gray-800 text-white rounded-full p-1 hover:bg-black transition-colors shadow-lg"
+                              title="Remove image"
                             >
-                              <AlertCircle size={14} />
+                              <X size={14} />
                             </button>
                           </div>
                         ) : (
@@ -480,7 +516,7 @@ export const BookingPage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="bg-red-50 border border-red-100 rounded-2xl p-4 flex items-start">
+                  <div className="bg-yellow-50 border border-yellow-100 rounded-2xl p-4 flex items-start">
                     <div className="flex items-center h-5">
                       <input
                         id="urgent"
@@ -488,14 +524,14 @@ export const BookingPage: React.FC = () => {
                         type="checkbox"
                         checked={formData.isUrgent}
                         onChange={handleInputChange}
-                        className="w-5 h-5 text-red-600 bg-white border-gray-300 rounded focus:ring-red-500"
+                        className="w-5 h-5 text-yellow-600 bg-white border-gray-300 rounded focus:ring-yellow-500"
                       />
                     </div>
                     <div className="ml-3 text-sm">
-                      <label htmlFor="urgent" className="font-bold text-red-800 cursor-pointer flex items-center">
-                        <AlertCircle size={16} className="mr-1" /> Urgent Booking (Within 2 hours)
+                      <label htmlFor="urgent" className="font-bold text-yellow-800 cursor-pointer flex items-center">
+                        <Zap size={16} className="mr-1 fill-yellow-500" /> Urgent Booking (Within 2 hours)
                       </label>
-                      <p className="text-red-600 mt-1">An additional fee of ₹200 applies for urgent bookings.</p>
+                      <p className="text-yellow-700 mt-1">An additional fee of ₹200 applies for urgent bookings.</p>
                     </div>
                   </div>
                 </div>
@@ -701,10 +737,13 @@ export const BookingPage: React.FC = () => {
                   Your service has been successfully booked. The professional will arrive at the scheduled time.
                 </p>
                 
-                <div className="bg-gray-50 rounded-2xl p-6 inline-block text-left mb-8 border border-gray-100">
-                  <p className="text-sm text-gray-500 mb-1">Booking ID</p>
-                  <p className="font-mono font-bold text-lg text-black tracking-wider">
+                <div className="bg-yellow-50 rounded-2xl p-6 inline-block text-left mb-8 border border-yellow-100 shadow-sm">
+                  <p className="text-xs font-bold text-yellow-700 uppercase tracking-widest mb-2">Track Order Number</p>
+                  <p className="font-mono font-black text-3xl text-black tracking-widest">
                     {bookingId?.split('-')[0].toUpperCase() || 'FXG-8923'}
+                  </p>
+                  <p className="text-[10px] font-bold text-yellow-600 mt-3 uppercase tracking-wider">
+                    Share this code with the professional to start the service
                   </p>
                 </div>
 

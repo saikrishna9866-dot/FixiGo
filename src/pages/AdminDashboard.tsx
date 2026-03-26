@@ -21,7 +21,9 @@ import {
   X,
   Loader2,
   Database,
-  ArrowRight
+  ArrowRight,
+  MessageSquare,
+  Reply
 } from 'lucide-react';
 import {
   LineChart,
@@ -65,13 +67,16 @@ export const AdminDashboard: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [providers, setProviders] = useState<any[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
+  const [messages, setMessages] = useState<any[]>([]);
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalType, setModalType] = useState<'category' | 'service' | 'provider'>('category');
+  const [modalType, setModalType] = useState<'category' | 'service' | 'provider' | 'reply'>('category');
   const [editingItem, setEditingItem] = useState<any>(null);
   const [formData, setFormData] = useState<any>({});
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
+  const [selectedMessage, setSelectedMessage] = useState<any>(null);
+  const [replyText, setReplyText] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string | string[], table: string, label: string } | null>(null);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 
@@ -150,6 +155,14 @@ export const AdminDashboard: React.FC = () => {
         .order('created_at', { ascending: false });
       if (bookError) throw bookError;
       
+      // Fetch Contact Messages
+      const { data: messagesData, error: msgError } = await supabaseAdmin
+        .from('contact_messages')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (msgError) throw msgError;
+      setMessages(messagesData || []);
+
       const formattedBookings = (bookingsData || []).map(b => ({
         ...b,
         users: b.users_profile
@@ -246,22 +259,36 @@ export const AdminDashboard: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const table = modalType === 'category' ? 'categories' : 'services';
-      const data = { ...formData };
-      
-      if (editingItem) {
+      if (modalType === 'reply') {
         const { error } = await supabaseAdmin
-          .from(table)
-          .update(data)
-          .eq('id', editingItem.id);
+          .from('contact_messages')
+          .update({ 
+            reply: replyText,
+            status: 'replied'
+          })
+          .eq('id', selectedMessage.id);
         if (error) throw error;
-        toast.success(`${modalType} updated`);
+        toast.success('Reply sent successfully');
+        setReplyText('');
+        setSelectedMessage(null);
       } else {
-        const { error } = await supabaseAdmin
-          .from(table)
-          .insert([data]);
-        if (error) throw error;
-        toast.success(`${modalType} added`);
+        const table = modalType === 'category' ? 'categories' : 'services';
+        const data = { ...formData };
+        
+        if (editingItem) {
+          const { error } = await supabaseAdmin
+            .from(table)
+            .update(data)
+            .eq('id', editingItem.id);
+          if (error) throw error;
+          toast.success(`${modalType} updated`);
+        } else {
+          const { error } = await supabaseAdmin
+            .from(table)
+            .insert([data]);
+          if (error) throw error;
+          toast.success(`${modalType} added`);
+        }
       }
       setIsModalOpen(false);
       fetchAllData();
@@ -392,6 +419,7 @@ export const AdminDashboard: React.FC = () => {
               { id: 'users', label: 'Users', icon: Users },
               { id: 'providers', label: 'Providers', icon: HardHat },
               { id: 'bookings', label: 'Bookings', icon: ShoppingBag },
+              { id: 'messages', label: 'Feedback', icon: MessageSquare },
             ].map((item) => (
               <button
                 key={item.id}
@@ -915,6 +943,62 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </motion.div>
           )}
+
+          {activeTab === 'messages' && (
+            <motion.div key="messages" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+              <div className="bg-gray-900 rounded-3xl border border-gray-800 overflow-hidden shadow-xl">
+                <table className="w-full text-left">
+                  <thead className="bg-gray-800/50 text-gray-400 text-xs uppercase tracking-widest">
+                    <tr>
+                      <th className="px-6 py-4">User</th>
+                      <th className="px-6 py-4">Service Type</th>
+                      <th className="px-6 py-4">Message</th>
+                      <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800">
+                    {messages.map((msg) => (
+                      <tr key={msg.id} className="hover:bg-gray-800/30 transition-colors">
+                        <td className="px-6 py-4">
+                          <p className="font-bold">{msg.full_name}</p>
+                          <p className="text-xs text-gray-500">{msg.email}</p>
+                          <p className="text-[10px] text-gray-600">{msg.phone_number}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="bg-gray-800 px-3 py-1 rounded-full text-xs capitalize">{msg.service_type}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm text-gray-300 max-w-xs truncate">{msg.message}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={cn(
+                            "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border",
+                            msg.status === 'replied' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-yellow-500/10 text-yellow-500 border-yellow-500/20"
+                          )}>
+                            {msg.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button 
+                            onClick={() => {
+                              setSelectedMessage(msg);
+                              setReplyText(msg.reply || '');
+                              setModalType('reply');
+                              setIsModalOpen(true);
+                            }} 
+                            className="p-2 bg-gray-800 rounded-lg text-yellow-500 hover:bg-gray-700"
+                          >
+                            <Reply size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
       </main>
 
@@ -1174,12 +1258,32 @@ export const AdminDashboard: React.FC = () => {
                   </>
                 )}
 
+                {modalType === 'reply' && selectedMessage && (
+                  <div className="space-y-6">
+                    <div className="bg-gray-800/50 p-4 rounded-2xl border border-gray-700">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Message from {selectedMessage.full_name}</p>
+                      <p className="text-sm text-gray-300 italic">"{selectedMessage.message}"</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-400 mb-2">Your Reply</label>
+                      <textarea
+                        required
+                        className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl focus:ring-2 focus:ring-yellow-500 outline-none text-white resize-none"
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        rows={5}
+                        placeholder="Type your reply here..."
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <button
                   type="submit"
                   disabled={loading}
                   className="w-full bg-yellow-600 text-black py-4 rounded-xl font-bold hover:bg-yellow-700 transition-all shadow-lg flex items-center justify-center space-x-2"
                 >
-                  {loading ? <Loader2 className="animate-spin" size={20} /> : <span>Save Changes</span>}
+                  {loading ? <Loader2 className="animate-spin" size={20} /> : <span>{modalType === 'reply' ? 'Send Reply' : 'Save Changes'}</span>}
                 </button>
               </form>
             </motion.div>

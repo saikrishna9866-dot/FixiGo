@@ -13,7 +13,8 @@ const HeroSection: React.FC<{
   setIsSearchFocused: (f: boolean) => void;
   filteredServices: Service[];
   navigate: (path: string) => void;
-}> = ({ searchQuery, setSearchQuery, handleSearch, isSearchFocused, setIsSearchFocused, filteredServices, navigate }) => (
+}> = ({ searchQuery, setSearchQuery, handleSearch, isSearchFocused, setIsSearchFocused, filteredServices, navigate }) => {
+  return (
   <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden bg-white pt-20">
     <div className="absolute inset-0 z-0 overflow-hidden">
       <div className="absolute top-20 left-10 w-96 h-96 bg-yellow-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
@@ -58,14 +59,10 @@ const HeroSection: React.FC<{
               onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
             />
           </div>
-          <div className="hidden md:block w-px h-10 bg-gray-200 mx-2"></div>
-          <div className="flex items-center px-6 py-4 md:py-0 w-full md:w-auto">
-            <MapPin className="text-gray-400 mr-4" size={24} />
-            <span className="text-gray-700 font-medium whitespace-nowrap">Your Location</span>
-          </div>
+          
           <button
             type="submit"
-            className="w-full md:w-auto bg-black text-white px-10 py-5 rounded-2xl font-black text-lg hover:bg-gray-800 transition-all shadow-xl hover:shadow-black/20 active:scale-95"
+            className="w-full md:w-auto bg-black text-white px-10 py-5 rounded-2xl font-black text-lg hover:bg-gray-800 transition-all shadow-xl hover:shadow-black/20 active:scale-95 mt-4 md:mt-0 md:ml-2"
           >
             Search
           </button>
@@ -127,7 +124,8 @@ const HeroSection: React.FC<{
       </div>
     </div>
   </section>
-);
+  );
+};
 
 const CategoryCard: React.FC<{ category: Category; idx: number; onClick: () => void }> = ({ category, idx, onClick }) => (
   <motion.div

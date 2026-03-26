@@ -235,13 +235,13 @@ export const Navbar: React.FC = () => {
             ) : (
               <div className="flex items-center space-x-4">
                 <Link
-                  to="/login"
+                  to={`/login?redirect=${encodeURIComponent(location.pathname)}`}
                   className="text-sm font-black uppercase tracking-widest text-gray-600 hover:text-yellow-600 transition-colors"
                 >
                   Login
                 </Link>
                 <Link
-                  to="/signup"
+                  to={`/signup?redirect=${encodeURIComponent(location.pathname)}`}
                   className="px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest bg-yellow-500 text-black shadow-lg shadow-yellow-500/20 hover:bg-yellow-600 transition-all active:scale-95"
                 >
                   Sign Up
@@ -329,14 +329,14 @@ export const Navbar: React.FC = () => {
                 ) : (
                   <div className="grid grid-cols-2 gap-4">
                     <Link
-                      to="/login"
+                      to={`/login?redirect=${encodeURIComponent(location.pathname)}`}
                       onClick={() => setIsOpen(false)}
                       className="block py-4 rounded-2xl text-center text-lg font-black bg-gray-100 text-gray-600"
                     >
                       Login
                     </Link>
                     <Link
-                      to="/signup"
+                      to={`/signup?redirect=${encodeURIComponent(location.pathname)}`}
                       onClick={() => setIsOpen(false)}
                       className="block py-4 rounded-2xl text-center text-lg font-black bg-black text-white"
                     >
