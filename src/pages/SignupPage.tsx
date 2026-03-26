@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { supabase, safeSignUp } from '../lib/supabase';
+import { safeSignUp } from '../lib/supabase';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
 import { Mail, Lock, User, Loader2 } from 'lucide-react';

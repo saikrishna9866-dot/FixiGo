@@ -1,7 +1,7 @@
 import React from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Search, Star, MapPin, Loader2, ArrowRight, Clock } from 'lucide-react';
+import { Search, Star, MapPin, ArrowRight, Clock } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useData } from '../context/DataContext';
 import { Service } from '../types';

@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { BackButton } from '../components/BackButton';
 import { supabase } from '../lib/supabase';
 
-export function ContactPage() {
+export const ContactPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',

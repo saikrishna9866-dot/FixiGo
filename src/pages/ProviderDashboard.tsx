@@ -9,25 +9,17 @@ import {
   LogOut, 
   Bell, 
   Settings,
-  Menu,
   X,
   Loader2,
   Power,
-  ChevronRight,
   TrendingUp,
   Clock,
   CheckCircle2,
-  AlertCircle,
   MapPin,
   Phone,
   Mail,
-  MessageSquare,
   Navigation,
-  ExternalLink,
-  Calendar,
-  Filter,
   Search,
-  MoreVertical,
   ArrowUpRight,
   ArrowDownRight,
   Award,
@@ -35,7 +27,7 @@ import {
   Zap,
   Timer
 } from 'lucide-react';
-import { supabase, safeGetSession, safeSignOut } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
 import { cn, formatDate, isValidUuid } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';

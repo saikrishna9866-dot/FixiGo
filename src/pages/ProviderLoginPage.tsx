@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react';
-import { supabase, safeSignInWithPassword } from '../lib/supabase';
+import { safeSignInWithPassword } from '../lib/supabase';
 import { toast } from 'sonner';
 import { ProviderLogo } from '../components/ProviderLogo';
 import { BackButton } from '../components/BackButton';
@@ -24,7 +24,7 @@ export const ProviderLoginPage: React.FC = () => {
 
     setLoading(true);
     try {
-      const { data, error } = await safeSignInWithPassword({
+      const { error } = await safeSignInWithPassword({
         email: formData.email,
         password: formData.password
       });

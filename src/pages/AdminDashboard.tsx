@@ -13,11 +13,7 @@ import {
   Edit2,
   Trash2,
   LogOut,
-  TrendingUp,
-  CheckCircle2,
   Clock,
-  Search,
-  ChevronRight,
   X,
   Loader2,
   Database,
@@ -82,11 +78,9 @@ export const AdminDashboard: React.FC = () => {
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
-  const [testError, setTestError] = useState<string | null>(null);
 
   const testConnection = async () => {
     setTestStatus('testing');
-    setTestError(null);
     try {
       // Test Supabase connection
       const { error } = await supabaseAdmin.from('categories').select('id').limit(1);
@@ -95,7 +89,6 @@ export const AdminDashboard: React.FC = () => {
       toast.success('Successfully connected to Supabase!');
     } catch (err: any) {
       setTestStatus('error');
-      setTestError(err.message || 'Unknown error');
       toast.error(`Connection error: ${err.message}`);
     }
   };

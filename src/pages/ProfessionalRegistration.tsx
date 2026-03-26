@@ -143,7 +143,6 @@ export const ProfessionalRegistration: React.FC = () => {
       const userId = session.user.id;
 
       // 1. Upload Documents to Storage if present
-      let idProofUrl = '';
       let profilePhotoUrl = '';
 
       if (formData.id_proof) {
@@ -151,16 +150,9 @@ export const ProfessionalRegistration: React.FC = () => {
         const fileName = `${userId}-id-proof.${fileExt}`;
         const filePath = `professionals/${fileName}`;
         
-        const { error: uploadError } = await supabase.storage
+        await supabase.storage
           .from('services')
           .upload(filePath, formData.id_proof, { upsert: true });
-          
-        if (!uploadError) {
-          const { data: { publicUrl } } = supabase.storage
-            .from('services')
-            .getPublicUrl(filePath);
-          idProofUrl = publicUrl;
-        }
       }
 
       if (formData.profile_photo) {

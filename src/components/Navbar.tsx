@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, Search, ArrowRight, User, LogOut, Shield, Briefcase, Bell } from 'lucide-react';
+import { Menu, X, Search, ArrowRight, LogOut, Shield, Briefcase } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
-import { supabase, safeSignOut } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -40,7 +40,7 @@ export const Navbar: React.FC = () => {
     const checkProvider = async () => {
       if (user) {
         try {
-          const { data: provider } = await supabase
+          await supabase
             .from('service_providers')
             .select('id')
             .eq('user_id', user.id)

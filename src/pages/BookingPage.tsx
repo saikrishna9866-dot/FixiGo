@@ -3,8 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase, safeGetUser } from '../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  MapPin, Calendar, Clock, FileText, User, Users, CreditCard, 
-  CheckCircle, ArrowRight, ArrowLeft, Star, ShieldCheck, AlertCircle, Loader2, X, Zap 
+  MapPin, Calendar, FileText, User, Users, CreditCard, 
+  CheckCircle, ArrowRight, ArrowLeft, Star, ShieldCheck, Loader2, X, Zap 
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, isValidUuid } from '../lib/utils';

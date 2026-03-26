@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react';
+import { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { Navbar } from './components/Navbar';
@@ -6,6 +6,7 @@ import { Footer } from './components/Footer';
 import { AuthProvider } from './context/AuthContext';
 import { DataProvider } from './context/DataContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { ProtectedRoute } from './components/ProtectedRoute';
 import { Loader2 } from 'lucide-react';
 
 // Lazy load pages
@@ -46,10 +47,10 @@ function App() {
                     <Route path="/" element={<LandingPage />} />
                     <Route path="/services" element={<ServicesPage />} />
                     <Route path="/search" element={<SearchResultsPage />} />
-                    <Route path="/book/:serviceId" element={<BookingPage />} />
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/signup" element={<SignupPage />} />
-                    <Route path="/dashboard" element={<DashboardPage />} />
+                    <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+                    <Route path="/book/:serviceId" element={<ProtectedRoute><BookingPage /></ProtectedRoute>} />
                     <Route path="/admin/login" element={<AdminLoginPage />} />
                     <Route path="/admin/dashboard" element={<AdminDashboard />} />
                     <Route path="/provider/login" element={<ProviderLoginPage />} />

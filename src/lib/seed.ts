@@ -37,9 +37,8 @@ export const seedDatabase = async () => {
         image_url: s.image_url
       }));
 
-    let insertedServices: any[] = [];
     if (servicesToInsert.length > 0) {
-      const { data, error: serError } = await supabaseAdmin
+      const { error: serError } = await supabaseAdmin
         .from('services')
         .insert(servicesToInsert)
         .select();
@@ -48,7 +47,6 @@ export const seedDatabase = async () => {
         console.error('Error inserting services:', serError);
         throw new Error(`Failed to seed services: ${serError.message}`);
       }
-      insertedServices = data || [];
     }
     
     // Fetch all services to build the map for providers

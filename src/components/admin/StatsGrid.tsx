@@ -1,7 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Users, Briefcase, Calendar, TrendingUp, TrendingDown } from 'lucide-react';
-import { formatCurrency } from '../../lib/utils';
+import { Users, Briefcase, Calendar, TrendingUp } from 'lucide-react';
 
 interface StatsGridProps {
   stats: {

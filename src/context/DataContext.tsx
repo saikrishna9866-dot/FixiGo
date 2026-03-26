@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { supabase } from '../lib/supabase';
 import { Category, Service } from '../types';
 import { fallbackCategories, fallbackServices } from '../data/fallbackData';
-import { toast } from 'sonner';
 
 interface DataContextType {
   categories: Category[];
