@@ -62,7 +62,12 @@ export function ContactPage() {
       });
     } catch (error: any) {
       console.error('Error sending message:', error);
-      toast.error('Failed to send message. Please try again.');
+      const errorMessage = error.message || 'Failed to send message. Please try again.';
+      if (errorMessage.includes('relation "contact_messages" does not exist')) {
+        toast.error('Database table "contact_messages" is missing. Please run the SQL schema in your Supabase dashboard.');
+      } else {
+        toast.error(errorMessage);
+      }
     } finally {
       setIsSubmitting(false);
     }

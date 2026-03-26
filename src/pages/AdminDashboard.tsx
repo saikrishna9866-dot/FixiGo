@@ -23,7 +23,8 @@ import {
   Database,
   ArrowRight,
   MessageSquare,
-  Reply
+  Reply,
+  RefreshCw
 } from 'lucide-react';
 import {
   LineChart,
@@ -120,8 +121,21 @@ export const AdminDashboard: React.FC = () => {
       )
       .subscribe();
 
+    // Set up real-time subscription for messages
+    const messagesChannel = supabaseAdmin
+      .channel('admin-messages-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'contact_messages' },
+        () => {
+          fetchAllData();
+        }
+      )
+      .subscribe();
+
     return () => {
       supabaseAdmin.removeChannel(bookingsChannel);
+      supabaseAdmin.removeChannel(messagesChannel);
     };
   }, []);
 
@@ -156,12 +170,25 @@ export const AdminDashboard: React.FC = () => {
       if (bookError) throw bookError;
       
       // Fetch Contact Messages
-      const { data: messagesData, error: msgError } = await supabaseAdmin
-        .from('contact_messages')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (msgError) throw msgError;
-      setMessages(messagesData || []);
+      try {
+        const { data: messagesData, error: msgError } = await supabaseAdmin
+          .from('contact_messages')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (msgError) {
+          if (msgError.message.includes('relation "contact_messages" does not exist')) {
+            console.warn('contact_messages table not found');
+            setMessages([]);
+          } else {
+            throw msgError;
+          }
+        } else {
+          setMessages(messagesData || []);
+        }
+      } catch (e) {
+        console.warn('Error fetching messages:', e);
+        setMessages([]);
+      }
 
       const formattedBookings = (bookingsData || []).map(b => ({
         ...b,
@@ -507,6 +534,15 @@ export const AdminDashboard: React.FC = () => {
 
             {/* Actions Group */}
             <div className="flex items-center gap-3">
+              <button
+                onClick={fetchAllData}
+                disabled={loading}
+                className="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-gray-800 transition-all"
+                title="Refresh Data"
+              >
+                <RefreshCw size={18} className={cn(loading && "animate-spin")} />
+              </button>
+
               <button
                 onClick={async () => {
                   if (!confirm('Are you sure you want to clear ALL data? This cannot be undone.')) return;
@@ -958,42 +994,54 @@ export const AdminDashboard: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-800">
-                    {messages.map((msg) => (
-                      <tr key={msg.id} className="hover:bg-gray-800/30 transition-colors">
-                        <td className="px-6 py-4">
-                          <p className="font-bold">{msg.full_name}</p>
-                          <p className="text-xs text-gray-500">{msg.email}</p>
-                          <p className="text-[10px] text-gray-600">{msg.phone_number}</p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="bg-gray-800 px-3 py-1 rounded-full text-xs capitalize">{msg.service_type}</span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <p className="text-sm text-gray-300 max-w-xs truncate">{msg.message}</p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={cn(
-                            "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border",
-                            msg.status === 'replied' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-yellow-500/10 text-yellow-500 border-yellow-500/20"
-                          )}>
-                            {msg.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <button 
-                            onClick={() => {
-                              setSelectedMessage(msg);
-                              setReplyText(msg.reply || '');
-                              setModalType('reply');
-                              setIsModalOpen(true);
-                            }} 
-                            className="p-2 bg-gray-800 rounded-lg text-yellow-500 hover:bg-gray-700"
-                          >
-                            <Reply size={16} />
-                          </button>
+                    {messages.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                          <div className="flex flex-col items-center gap-2">
+                            <MessageSquare size={32} className="opacity-20" />
+                            <p className="font-medium">No feedback messages found</p>
+                            <p className="text-xs">New messages will appear here in real-time</p>
+                          </div>
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      messages.map((msg) => (
+                        <tr key={msg.id} className="hover:bg-gray-800/30 transition-colors">
+                          <td className="px-6 py-4">
+                            <p className="font-bold">{msg.full_name}</p>
+                            <p className="text-xs text-gray-500">{msg.email}</p>
+                            <p className="text-[10px] text-gray-600">{msg.phone_number}</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="bg-gray-800 px-3 py-1 rounded-full text-xs capitalize">{msg.service_type}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="text-sm text-gray-300 max-w-xs truncate">{msg.message}</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={cn(
+                              "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border",
+                              msg.status === 'replied' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-yellow-500/10 text-yellow-500 border-yellow-500/20"
+                            )}>
+                              {msg.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <button 
+                              onClick={() => {
+                                setSelectedMessage(msg);
+                                setReplyText(msg.reply || '');
+                                setModalType('reply');
+                                setIsModalOpen(true);
+                              }} 
+                              className="p-2 bg-gray-800 rounded-lg text-yellow-500 hover:bg-gray-700"
+                            >
+                              <Reply size={16} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>

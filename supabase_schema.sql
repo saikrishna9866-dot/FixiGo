@@ -80,22 +80,23 @@ CREATE TABLE IF NOT EXISTS bookings (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Ensure columns exist for bookings
-ALTER TABLE bookings ADD COLUMN IF NOT EXISTS address TEXT;
-ALTER TABLE bookings ADD COLUMN IF NOT EXISTS city TEXT;
-ALTER TABLE bookings ADD COLUMN IF NOT EXISTS pincode TEXT;
-ALTER TABLE bookings ADD COLUMN IF NOT EXISTS landmark TEXT;
-ALTER TABLE bookings ADD COLUMN IF NOT EXISTS booking_date DATE;
-ALTER TABLE bookings ADD COLUMN IF NOT EXISTS booking_time TEXT;
-ALTER TABLE bookings ADD COLUMN IF NOT EXISTS problem_description TEXT;
-ALTER TABLE bookings ADD COLUMN IF NOT EXISTS service_type TEXT;
-ALTER TABLE bookings ADD COLUMN IF NOT EXISTS item_count TEXT;
-ALTER TABLE bookings ADD COLUMN IF NOT EXISTS problem_image TEXT;
-ALTER TABLE bookings ADD COLUMN IF NOT EXISTS total_price NUMERIC;
-ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_method TEXT;
-ALTER TABLE bookings ADD COLUMN IF NOT EXISTS is_urgent BOOLEAN DEFAULT false;
+-- 6. Create contact_messages table
+CREATE TABLE IF NOT EXISTS contact_messages (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  full_name TEXT NOT NULL,
+  phone_number TEXT NOT NULL,
+  email TEXT NOT NULL,
+  service_type TEXT NOT NULL,
+  message TEXT NOT NULL,
+  reply TEXT,
+  status TEXT DEFAULT 'pending',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
 
--- 6. Insert Categories
+-- Disable RLS for contact_messages (Development Mode)
+ALTER TABLE contact_messages DISABLE ROW LEVEL SECURITY;
+
+-- 7. Insert Categories
 INSERT INTO categories (name) VALUES
   ('Home & Repair Services'),
   ('Vehicle Services'),
