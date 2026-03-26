@@ -101,17 +101,17 @@ export const Navbar: React.FC = () => {
     <nav className={cn(
       "fixed top-0 left-0 right-0 z-[100] transition-all duration-500",
       isScrolled 
-        ? "bg-white/80 backdrop-blur-xl shadow-[0_8px_30px_rgba(0,0,0,0.04)] py-3" 
-        : "bg-transparent py-6"
+        ? "bg-white/80 backdrop-blur-xl shadow-[0_8px_30px_rgba(0,0,0,0.04)] py-2 md:py-3" 
+        : "bg-transparent py-4 md:py-6"
     )}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center">
-          <div className="flex items-center space-x-12">
+          <div className="flex items-center space-x-4 md:space-x-12">
             <Link to="/" className="flex items-center group">
-              <div className="w-10 h-10 bg-yellow-500 rounded-xl flex items-center justify-center mr-3 group-hover:rotate-12 transition-transform shadow-lg shadow-yellow-500/20">
-                <span className="text-black font-black text-xl">F</span>
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-yellow-500 rounded-lg md:rounded-xl flex items-center justify-center mr-2 md:mr-3 group-hover:rotate-12 transition-transform shadow-lg shadow-yellow-500/20">
+                <span className="text-black font-black text-lg md:text-xl">F</span>
               </div>
-              <span className="text-2xl font-black tracking-tighter text-black">
+              <span className="text-xl md:text-2xl font-black tracking-tighter text-black">
                 Fixi<span className="text-yellow-500">Go</span>
               </span>
             </Link>

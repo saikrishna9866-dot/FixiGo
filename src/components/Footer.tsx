@@ -10,9 +10,9 @@ export const Footer: React.FC = () => {
   if (isDashboard) return null;
 
   return (
-    <footer className="bg-[#f5f5f5] text-[#1a1a1a] pt-10 pb-8 border-t border-gray-200">
+    <footer className="bg-[#f5f5f5] text-[#1a1a1a] pt-8 md:pt-10 pb-6 md:pb-8 border-t border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-8">
+        <div className="mb-6 md:mb-8">
           <Link to="/" className="flex items-center space-x-2">
             <div className="bg-yellow-500 text-black w-8 h-8 flex items-center justify-center rounded-lg font-bold text-lg shadow-[0_0_10px_rgba(234,179,8,0.2)]">F</div>
             <span className="text-xl font-bold tracking-tight text-black">

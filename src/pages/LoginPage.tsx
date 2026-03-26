@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { safeSignInWithPassword } from '../lib/supabase';
+import { safeSignInWithPassword, isSupabaseConfigured } from '../lib/supabase';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
-import { Mail, Lock, Loader2 } from 'lucide-react';
+import { Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
 import { BackButton } from '../components/BackButton';
 
 export const LoginPage: React.FC = () => {
@@ -19,6 +19,10 @@ export const LoginPage: React.FC = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isSupabaseConfigured) {
+      toast.error('Supabase is not configured. Please check your environment variables.');
+      return;
+    }
     setLoading(true);
     
     // Allow dummy emails by appending a domain if missing
@@ -41,6 +45,12 @@ export const LoginPage: React.FC = () => {
       </div>
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
         <h2 className="text-2xl font-bold mb-6">Login</h2>
+        {!isSupabaseConfigured && (
+          <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-4 flex items-center gap-2 text-sm">
+            <AlertCircle size={20} />
+            <span>Supabase is not configured. Please ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set in your environment variables.</span>
+          </div>
+        )}
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="relative">
             <Mail className="absolute left-3 top-3 text-gray-400" size={20} />
@@ -50,7 +60,7 @@ export const LoginPage: React.FC = () => {
             <Lock className="absolute left-3 top-3 text-gray-400" size={20} />
             <input type="password" placeholder="Password" className="w-full pl-10 pr-4 py-2 border rounded-lg" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </div>
-          <button type="submit" className="w-full bg-yellow-500 text-white py-2 rounded-lg font-bold hover:bg-yellow-600 transition-colors" disabled={loading}>
+          <button type="submit" className="w-full bg-yellow-500 text-white py-2 rounded-lg font-bold hover:bg-yellow-600 transition-colors" disabled={loading || !isSupabaseConfigured}>
             {loading ? <Loader2 className="animate-spin mx-auto" size={20} /> : 'Login'}
           </button>
         </form>
