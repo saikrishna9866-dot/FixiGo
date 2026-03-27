@@ -29,7 +29,7 @@ export const BookingPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
-  const [bookingId, setBookingId] = useState<string | null>(null);
+  const [bookingResult, setBookingResult] = useState<any | null>(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -233,7 +233,7 @@ export const BookingPage: React.FC = () => {
       // Clear pending booking on success
       localStorage.removeItem('pending_booking');
       
-      setBookingId(result.id);
+      setBookingResult(result);
       setStep(5); // Confirmation step
       toast.success('Booking confirmed successfully!');
     } catch (error: any) {
@@ -740,7 +740,7 @@ export const BookingPage: React.FC = () => {
                 <div className="bg-yellow-50 rounded-2xl p-6 inline-block text-left mb-8 border border-yellow-100 shadow-sm">
                   <p className="text-xs font-bold text-yellow-700 uppercase tracking-widest mb-2">Track Order Number</p>
                   <p className="font-mono font-black text-3xl text-black tracking-widest">
-                    {result.track_order_number || 'FXG-8923'}
+                    {bookingResult?.track_order_number || 'FXG-8923'}
                   </p>
                   <p className="text-[10px] font-bold text-yellow-600 mt-3 uppercase tracking-wider">
                     Share this code with the professional to start the service

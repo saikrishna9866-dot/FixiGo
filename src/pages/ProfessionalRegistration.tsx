@@ -398,6 +398,22 @@ export const ProfessionalRegistration: React.FC = () => {
             <div className="space-y-4">
               <p className="text-sm font-bold text-gray-700 uppercase tracking-widest">Working Days</p>
               <div className="flex flex-wrap gap-3">
+                <label className="cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    className="hidden peer"
+                    checked={formData.working_days.length === 7}
+                    onChange={e => setFormData({
+                      ...formData, 
+                      working_days: e.target.checked 
+                        ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+                        : []
+                    })} 
+                  />
+                  <div className="px-5 py-3 rounded-xl border-2 border-gray-100 font-bold text-sm peer-checked:bg-black peer-checked:border-black peer-checked:text-white transition-all">
+                    All Days
+                  </div>
+                </label>
                 {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
                   <label key={day} className="cursor-pointer">
                     <input 
