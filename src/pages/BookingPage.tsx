@@ -740,7 +740,7 @@ export const BookingPage: React.FC = () => {
                 <div className="bg-yellow-50 rounded-2xl p-6 inline-block text-left mb-8 border border-yellow-100 shadow-sm">
                   <p className="text-xs font-bold text-yellow-700 uppercase tracking-widest mb-2">Track Order Number</p>
                   <p className="font-mono font-black text-3xl text-black tracking-widest">
-                    {bookingId?.split('-')[0].toUpperCase() || 'FXG-8923'}
+                    {result.track_order_number || 'FXG-8923'}
                   </p>
                   <p className="text-[10px] font-bold text-yellow-600 mt-3 uppercase tracking-wider">
                     Share this code with the professional to start the service

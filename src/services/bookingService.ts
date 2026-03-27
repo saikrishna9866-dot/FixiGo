@@ -143,6 +143,9 @@ export const bookingService = {
       }
     }
 
+    // Generate a unique track order number
+    const trackOrderNumber = `FXG-${Math.floor(1000 + Math.random() * 9000)}`;
+
     const bookingPayload: any = {
       user_id: data.userId,
       service_id: actualServiceId,
@@ -154,6 +157,7 @@ export const bookingService = {
       booking_time: data.bookingTime,
       problem_description: data.problemDescription,
       total_price: data.totalPrice,
+      track_order_number: trackOrderNumber,
       status: 'pending'
     };
 

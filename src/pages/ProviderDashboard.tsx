@@ -55,6 +55,7 @@ interface Job {
   distance: string;
   expires_at: number; // timestamp
   is_open_pool?: boolean;
+  track_order_number?: string;
 }
 
 const STATUS_FLOW: Record<JobStatus, { next?: JobStatus; label: string; color: string; action?: string }> = {
@@ -378,7 +379,9 @@ const VerificationModal = ({ job, onClose, onVerify }: any) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const expectedCode = job.id.split('-')[0].toUpperCase();
+    // Verify against the actual track_order_number
+    const expectedCode = job.track_order_number?.toUpperCase(); 
+    
     if (code.toUpperCase() === expectedCode) {
       onVerify(job.id, 'in_progress');
       onClose();
@@ -526,7 +529,8 @@ export const ProviderDashboard: React.FC = () => {
           description: b.notes || b.services?.description || '',
           distance: 'N/A',
           expires_at: Date.now() + 1000 * 60 * 60,
-          is_open_pool: !b.provider_id || b.provider_id !== providerId
+          is_open_pool: !b.provider_id || b.provider_id !== providerId,
+          track_order_number: b.track_order_number
         }));
         setBookings(mappedBookings);
       }
