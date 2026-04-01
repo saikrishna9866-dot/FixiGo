@@ -15,7 +15,7 @@ export const AdminLoginPage: React.FC = () => {
     e.preventDefault();
     // Admin credentials check
     if (username === 'Saikrishna' && password === 'Saikrishnatadi@3813') {
-      localStorage.setItem('admin_session', 'true');
+      sessionStorage.setItem('admin_session', 'true');
       toast.success('Access granted');
       navigate('/admin/dashboard');
     } else {

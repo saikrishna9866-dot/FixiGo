@@ -201,32 +201,46 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;
               {[
                 { label: 'Supabase URL', value: supabaseUrl, isSecret: false },
                 { label: 'Anon Key', value: supabaseAnonKey, isSecret: true },
-                { label: 'Service Role Key', value: supabaseServiceRoleKey, isSecret: true }
+                { label: 'Service Role Key', value: supabaseServiceRoleKey, isSecret: true, isBackend: true }
               ].map((env, idx) => {
                 const isPlaceholder = !env.value || env.value.startsWith('YOUR_') || env.value.length < 20;
                 const isIdentical = env.label === 'Service Role Key' && env.value === supabaseAnonKey && env.value !== '';
+                
+                // For Service Role Key, we now rely on the connectionStatus from the backend health check
+                const isConfigured = env.label === 'Service Role Key' 
+                  ? connectionStatus === 'success' 
+                  : !isPlaceholder;
 
                 return (
                   <div key={idx} className="p-4 bg-gray-950 rounded-2xl border border-gray-800">
                     <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{env.label}</span>
-                      {isPlaceholder ? (
-                        <span className="flex items-center text-red-400 text-[10px] font-bold uppercase bg-red-400/10 px-2 py-0.5 rounded-full border border-red-400/20">
-                          <AlertTriangle size={10} className="mr-1" /> Missing/Invalid
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{env.label}</span>
+                        {env.isBackend && (
+                          <span className="text-[9px] font-bold bg-indigo-500/10 text-indigo-400 px-1.5 py-0.5 rounded border border-indigo-500/20 uppercase tracking-tighter">Backend Only</span>
+                        )}
+                      </div>
+                      {isConfigured ? (
+                        <span className="flex items-center text-green-400 text-[10px] font-bold uppercase bg-green-400/10 px-2 py-0.5 rounded-full border border-green-400/20">
+                          <CheckCircle size={10} className="mr-1" /> {env.label === 'Service Role Key' ? 'Verified via API' : 'Configured'}
                         </span>
                       ) : (
-                        <span className="flex items-center text-green-400 text-[10px] font-bold uppercase bg-green-400/10 px-2 py-0.5 rounded-full border border-green-400/20">
-                          <CheckCircle size={10} className="mr-1" /> Configured
+                        <span className="flex items-center text-red-400 text-[10px] font-bold uppercase bg-red-400/10 px-2 py-0.5 rounded-full border border-red-400/20">
+                          <AlertTriangle size={10} className="mr-1" /> {env.label === 'Service Role Key' ? 'Backend Error' : 'Missing/Invalid'}
                         </span>
                       )}
                     </div>
                     <div className="flex items-center justify-between bg-black/40 p-2.5 rounded-xl border border-gray-800">
                       <code className="text-xs text-gray-300 truncate mr-2 font-mono">
-                        {env.isSecret ? (env.value ? '••••••••••••••••' + env.value.slice(-6) : 'Not set') : env.value || 'Not set'}
+                        {env.label === 'Service Role Key' 
+                          ? (connectionStatus === 'success' ? '•••••••••••••••• (Secured on Backend)' : 'Not verified')
+                          : (env.isSecret ? (env.value ? '••••••••••••••••' + env.value.slice(-6) : 'Not set') : env.value || 'Not set')}
                       </code>
-                      <button onClick={() => copyToClipboard(env.value)} className="text-gray-500 hover:text-yellow-500 transition-colors">
-                        <Copy size={14} />
-                      </button>
+                      {!env.isBackend && (
+                        <button onClick={() => copyToClipboard(env.value)} className="text-gray-500 hover:text-yellow-500 transition-colors">
+                          <Copy size={14} />
+                        </button>
+                      )}
                     </div>
                     {isIdentical && (
                       <p className="text-[10px] text-red-400 mt-2 font-medium flex items-center bg-red-400/5 p-2 rounded-lg border border-red-400/10">

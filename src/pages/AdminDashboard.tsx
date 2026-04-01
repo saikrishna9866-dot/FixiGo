@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { supabaseAdmin } from '../lib/supabaseAdmin';
+import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   LayoutDashboard,
@@ -82,11 +82,14 @@ export const AdminDashboard: React.FC = () => {
   const testConnection = async () => {
     setTestStatus('testing');
     try {
-      // Test Supabase connection
-      const { error } = await supabaseAdmin.from('categories').select('id').limit(1);
-      if (error) throw error;
+      // Test Supabase connection via backend API
+      const response = await fetch('/api/admin/health');
+      const result = await response.json();
+      
+      if (!response.ok) throw new Error(result.message || 'Failed to connect to backend admin API');
+      
       setTestStatus('success');
-      toast.success('Successfully connected to Supabase!');
+      toast.success('Successfully connected to Supabase via Backend!');
     } catch (err: any) {
       setTestStatus('error');
       toast.error(`Connection error: ${err.message}`);
@@ -94,7 +97,7 @@ export const AdminDashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    const isAdmin = localStorage.getItem('admin_session') === 'true';
+    const isAdmin = sessionStorage.getItem('admin_session') === 'true';
     if (!isAdmin) {
       navigate('/admin/login');
       return;
@@ -102,8 +105,8 @@ export const AdminDashboard: React.FC = () => {
     fetchAllData();
     testConnection();
 
-    // Set up real-time subscription for bookings
-    const bookingsChannel = supabaseAdmin
+    // Set up real-time subscription for bookings (using public client is safer for subscriptions)
+    const bookingsChannel = supabase
       .channel('admin-bookings-changes')
       .on(
         'postgres_changes',
@@ -115,7 +118,7 @@ export const AdminDashboard: React.FC = () => {
       .subscribe();
 
     // Set up real-time subscription for messages
-    const messagesChannel = supabaseAdmin
+    const messagesChannel = supabase
       .channel('admin-messages-changes')
       .on(
         'postgres_changes',
@@ -127,63 +130,61 @@ export const AdminDashboard: React.FC = () => {
       .subscribe();
 
     return () => {
-      supabaseAdmin.removeChannel(bookingsChannel);
-      supabaseAdmin.removeChannel(messagesChannel);
+      supabase.removeChannel(bookingsChannel);
+      supabase.removeChannel(messagesChannel);
     };
   }, []);
 
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      // Fetch Categories
-      const { data: categoriesData, error: catError } = await supabaseAdmin.from('categories').select('*');
-      if (catError) throw catError;
-      setCategories(categoriesData || []);
+      // Helper for admin queries via backend
+      const adminQuery = async (table: string, action: string = 'select', options: any = {}) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
-      // Fetch Services
-      const { data: servicesData, error: serError } = await supabaseAdmin.from('services').select('*, categories(*)');
-      if (serError) throw serError;
-      setServices(servicesData || []);
-
-      // Fetch Users
-      const { data: usersData, error: usersError } = await supabaseAdmin.from('users_profile').select('*');
-      if (usersError) throw usersError;
-      setUsers(usersData || []);
-
-      // Fetch Providers
-      const { data: providersData, error: provError } = await supabaseAdmin.from('service_providers').select('*, services(*)');
-      if (provError) throw provError;
-      setProviders(providersData || []);
-
-      // Fetch Bookings
-      const { data: bookingsData, error: bookError } = await supabaseAdmin
-        .from('bookings')
-        .select('*, users_profile(*), services(*), service_providers(*)')
-        .order('created_at', { ascending: false });
-      if (bookError) throw bookError;
-      
-      // Fetch Contact Messages
-      try {
-        const { data: messagesData, error: msgError } = await supabaseAdmin
-          .from('contact_messages')
-          .select('*')
-          .order('created_at', { ascending: false });
-        if (msgError) {
-          if (msgError.message.includes('relation "contact_messages" does not exist')) {
-            console.warn('contact_messages table not found');
-            setMessages([]);
-          } else {
-            throw msgError;
-          }
-        } else {
-          setMessages(messagesData || []);
+        try {
+          const response = await fetch('/api/admin/query', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ table, action, ...options }),
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || `Failed to fetch ${table}`);
+          return data;
+        } catch (err: any) {
+          clearTimeout(timeoutId);
+          if (err.name === 'AbortError') throw new Error(`Request timed out for ${table}`);
+          throw err;
         }
-      } catch (e) {
-        console.warn('Error fetching messages:', e);
-        setMessages([]);
-      }
+      };
 
-      const formattedBookings = (bookingsData || []).map(b => ({
+      const [cats, servs, usersData, provs, books, msgs] = await Promise.all([
+        adminQuery('categories'),
+        adminQuery('services', 'select', { query: '*, categories(*)' }),
+        adminQuery('users_profile'),
+        adminQuery('service_providers', 'select', { query: '*, services(*)' }),
+        adminQuery('bookings', 'select', { 
+          query: '*, users_profile(*), services(*), service_providers(*)',
+          order: { column: 'created_at', ascending: false }
+        }),
+        adminQuery('contact_messages', 'select', {
+          order: { column: 'created_at', ascending: false }
+        }).catch(e => {
+          console.warn('Error fetching messages:', e);
+          return [];
+        })
+      ]);
+
+      setCategories(cats || []);
+      setServices(servs || []);
+      setUsers(usersData || []);
+      setProviders(provs || []);
+      setMessages(msgs || []);
+
+      const formattedBookings = (books || []).map((b: any) => ({
         ...b,
         users: b.users_profile
       }));
@@ -196,7 +197,7 @@ export const AdminDashboard: React.FC = () => {
 
       setStats({
         users: (usersData || []).length,
-        providers: (providersData || []).length,
+        providers: (provs || []).length,
         bookings: formattedBookings.length,
         activeJobs: formattedBookings.filter((b: any) => b.status === 'accepted').length,
         revenue: totalRevenue
@@ -228,7 +229,7 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('admin_session');
+    sessionStorage.removeItem('admin_session');
     toast.success('Logged out from admin panel');
     navigate('/admin/login');
   };
@@ -255,13 +256,13 @@ export const AdminDashboard: React.FC = () => {
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `service-images/${fileName}`;
       
-      const { error: uploadError } = await supabaseAdmin.storage
+      const { error: uploadError } = await supabase.storage
         .from('services')
         .upload(filePath, file);
         
       if (uploadError) throw uploadError;
       
-      const { data: { publicUrl } } = supabaseAdmin.storage
+      const { data: { publicUrl } } = supabase.storage
         .from('services')
         .getPublicUrl(filePath);
       
@@ -279,15 +280,22 @@ export const AdminDashboard: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     try {
+      const adminQuery = async (table: string, action: string, options: any) => {
+        const response = await fetch('/api/admin/query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ table, action, ...options })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || `Failed to ${action} ${table}`);
+        return data;
+      };
+
       if (modalType === 'reply') {
-        const { error } = await supabaseAdmin
-          .from('contact_messages')
-          .update({ 
-            reply: replyText,
-            status: 'replied'
-          })
-          .eq('id', selectedMessage.id);
-        if (error) throw error;
+        await adminQuery('contact_messages', 'update', {
+          data: { reply: replyText, status: 'replied' },
+          match: { id: selectedMessage.id }
+        });
         toast.success('Reply sent successfully');
         setReplyText('');
         setSelectedMessage(null);
@@ -296,17 +304,13 @@ export const AdminDashboard: React.FC = () => {
         const data = { ...formData };
         
         if (editingItem) {
-          const { error } = await supabaseAdmin
-            .from(table)
-            .update(data)
-            .eq('id', editingItem.id);
-          if (error) throw error;
+          await adminQuery(table, 'update', {
+            data,
+            match: { id: editingItem.id }
+          });
           toast.success(`${modalType} updated`);
         } else {
-          const { error } = await supabaseAdmin
-            .from(table)
-            .insert([data]);
-          if (error) throw error;
+          await adminQuery(table, 'insert', { data: [data] });
           toast.success(`${modalType} added`);
         }
       }
@@ -329,23 +333,36 @@ export const AdminDashboard: React.FC = () => {
     
     setLoading(true);
     try {
+      const adminQuery = async (table: string, action: string, options: any) => {
+        const response = await fetch('/api/admin/query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ table, action, ...options })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || `Failed to ${action} ${table}`);
+        return data;
+      };
+
       const idsToDelete = Array.isArray(deleteConfirm.id) ? deleteConfirm.id : [deleteConfirm.id];
       
       for (const id of idsToDelete) {
         // If deleting a user, we should also delete their bookings first to avoid foreign key constraints
         if (deleteConfirm.table === 'users_profile') {
-          const { error: bookingsError } = await supabaseAdmin
-            .from('bookings')
-            .delete()
-            .eq('user_id', id);
-            
-          if (bookingsError) {
+          try {
+            await adminQuery('bookings', 'delete', { match: { user_id: id } });
+          } catch (bookingsError) {
             console.warn(`Failed to delete bookings for user ${id}:`, bookingsError);
           }
 
-          // Also delete from Auth
-          const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(id);
-          if (authError) {
+          // Also delete from Auth via backend
+          const authResponse = await fetch('/api/admin/delete-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: id })
+          });
+          if (!authResponse.ok) {
+            const authError = await authResponse.json();
             console.warn(`Auth deletion failed for ${id}:`, authError);
           }
         }
@@ -353,22 +370,17 @@ export const AdminDashboard: React.FC = () => {
         // If deleting a service provider, we should handle their bookings
         if (deleteConfirm.table === 'service_providers') {
           // We'll set provider_id to null for their bookings instead of deleting the bookings
-          const { error: bookingsError } = await supabaseAdmin
-            .from('bookings')
-            .update({ provider_id: null })
-            .eq('provider_id', id);
-            
-          if (bookingsError) {
+          try {
+            await adminQuery('bookings', 'update', {
+              data: { provider_id: null },
+              match: { provider_id: id }
+            });
+          } catch (bookingsError) {
             console.warn(`Failed to update bookings for provider ${id}:`, bookingsError);
           }
         }
 
-        const { error } = await supabaseAdmin
-          .from(deleteConfirm.table)
-          .delete()
-          .eq('id', id);
-          
-        if (error) throw error;
+        await adminQuery(deleteConfirm.table, 'delete', { match: { id } });
       }
       
       toast.success(`${deleteConfirm.label} deleted successfully`);
@@ -385,11 +397,17 @@ export const AdminDashboard: React.FC = () => {
 
   const handleStatusUpdate = async (bookingId: string, newStatus: string) => {
     try {
-      const { error } = await supabaseAdmin
-        .from('bookings')
-        .update({ status: newStatus })
-        .eq('id', bookingId);
-      if (error) throw error;
+      const response = await fetch('/api/admin/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          table: 'bookings',
+          action: 'update',
+          data: { status: newStatus },
+          match: { id: bookingId }
+        })
+      });
+      if (!response.ok) throw new Error('Failed to update status');
       toast.success('Status updated');
       fetchAllData();
     } catch (error: any) {

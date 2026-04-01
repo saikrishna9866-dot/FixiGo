@@ -15,7 +15,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: true,
     flowType: 'pkce',
-    // In iframe environments, we sometimes want to be more careful with storage
+    storage: window.sessionStorage,
     storageKey: 'fixigo-auth-token',
   }
 });
@@ -73,6 +73,49 @@ export const safeSignInWithPassword = async (credentials: any, retryCount = 0): 
       const delay = Math.pow(2, retryCount) * 100 + Math.random() * 100;
       await new Promise(resolve => setTimeout(resolve, delay));
       return safeSignInWithPassword(credentials, retryCount + 1);
+    }
+    return { data: null, error };
+  }
+};
+
+/**
+ * Safely signs in with OAuth (Google) with a retry mechanism for the "steal" lock error.
+ */
+export const safeSignInWithOAuth = async (provider: 'google', redirectTo?: string, retryCount = 0): Promise<any> => {
+  try {
+    // Determine the best redirect URL
+    // 1. Use the provided redirectTo
+    // 2. Use window.location.origin (works for both dev and prod)
+    // 3. Fallback to the production URL
+    const finalRedirectTo = redirectTo || window.location.origin || "https://fixi-go.vercel.app";
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: finalRedirectTo,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
+    });
+    
+    if (error) {
+      if (error.message?.includes('steal') && retryCount < 5) {
+        console.warn(`Auth lock conflict (steal) during OAuth sign in, retrying... (${retryCount + 1}/5)`);
+        const delay = Math.pow(2, retryCount) * 100 + Math.random() * 100;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return safeSignInWithOAuth(provider, redirectTo, retryCount + 1);
+      }
+      throw error;
+    }
+    
+    return { data, error: null };
+  } catch (error: any) {
+    if (error.message?.includes('steal') && retryCount < 5) {
+      const delay = Math.pow(2, retryCount) * 100 + Math.random() * 100;
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return safeSignInWithOAuth(provider, redirectTo, retryCount + 1);
     }
     return { data: null, error };
   }

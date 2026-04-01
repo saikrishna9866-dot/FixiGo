@@ -51,32 +51,44 @@ export const BookingPage: React.FC = () => {
   useEffect(() => {
     fetchServiceDetails();
     
-    // Restore pending booking data if available
-    const savedBooking = localStorage.getItem('pending_booking');
-    if (savedBooking) {
-      try {
-        const { serviceId: savedServiceId, formData: savedFormData, step: savedStep } = JSON.parse(savedBooking);
-        if (savedServiceId === serviceId) {
-          setFormData(savedFormData);
-          setStep(savedStep);
-          toast.info('Restored your previous booking details');
-        }
-      } catch (e) {
-        console.error('Error restoring pending booking:', e);
-      }
+    // Check for pending booking ID in URL or state
+    const searchParams = new URLSearchParams(window.location.search);
+    const pendingId = searchParams.get('pending_id');
+    
+    if (pendingId) {
+      restorePendingBooking(pendingId);
     }
   }, [serviceId]);
 
-  // Save form data to localStorage on change
-  useEffect(() => {
-    if (serviceId && (formData.address || formData.date || formData.description)) {
-      localStorage.setItem('pending_booking', JSON.stringify({
-        serviceId,
-        formData,
-        step
-      }));
+  const restorePendingBooking = async (id: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('pending_bookings')
+        .select('booking_data')
+        .eq('temp_id', id)
+        .single();
+      
+      if (error) throw error;
+      
+      if (data?.booking_data) {
+        setFormData(data.booking_data.formData);
+        setStep(data.booking_data.step);
+        toast.info('Restored your previous booking details');
+        
+        // Clean up the pending booking
+        await supabase.from('pending_bookings').delete().eq('temp_id', id);
+        
+        // Clean up URL
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+      }
+    } catch (e) {
+      console.error('Error restoring pending booking:', e);
     }
-  }, [formData, step, serviceId]);
+  };
+
+  // Form data persistence is now handled via pending_bookings table when needed
+  // Removing the automatic localStorage save
 
   const fetchServiceDetails = async () => {
     if (!serviceId) return;
@@ -197,14 +209,22 @@ export const BookingPage: React.FC = () => {
       const { data } = await safeGetUser();
       const user = data?.user;
       if (!user) {
-        // Save form data before redirecting to login
-        localStorage.setItem('pending_booking', JSON.stringify({
-          serviceId,
-          formData,
-          step
-        }));
+        // Generate a random temp ID
+        const tempId = Math.random().toString(36).substring(2, 15);
+        
+        // Save to pending_bookings table
+        await supabase.from('pending_bookings').insert({
+          temp_id: tempId,
+          booking_data: {
+            serviceId,
+            formData,
+            step
+          }
+        });
+
         toast.error('Please login to confirm booking');
-        navigate(`/login?redirect=${encodeURIComponent(`/book/${serviceId}`)}`);
+        const redirectUrl = encodeURIComponent(`/book/${serviceId}?pending_id=${tempId}`);
+        navigate(`/login?redirect=${redirectUrl}`);
         return;
       }
 
@@ -230,8 +250,7 @@ export const BookingPage: React.FC = () => {
         totalPrice: totalPrice
       });
       
-      // Clear pending booking on success
-      localStorage.removeItem('pending_booking');
+      // Clear pending booking on success (already handled by restorePendingBooking if it was a restoration)
       
       setBookingResult(result);
       setStep(5); // Confirmation step

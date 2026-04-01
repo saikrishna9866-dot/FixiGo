@@ -1,12 +1,9 @@
-import { createClient } from '@supabase/supabase-js';
+/**
+ * Supabase Admin Client
+ * 
+ * IMPORTANT: The Service Role Key should NEVER be exposed on the frontend.
+ * Admin operations have been moved to the backend (server.ts).
+ * This file is kept for reference or if you need to define admin-related types.
+ */
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseServiceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || 'placeholder-key';
-
-export const isSupabaseAdminConfigured = supabaseUrl !== 'https://placeholder.supabase.co' && supabaseServiceRoleKey !== 'placeholder-key';
-
-if (!isSupabaseAdminConfigured) {
-  console.warn('Supabase URL or Service Role Key is missing. Please set them in your environment variables.');
-}
-
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
+export const isSupabaseAdminConfigured = false; // Admin is now handled via backend API

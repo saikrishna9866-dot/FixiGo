@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS categories (
 CREATE TABLE IF NOT EXISTS services (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   category_id UUID REFERENCES categories(id) ON DELETE CASCADE,
-  title TEXT NOT NULL,
+  title TEXT NOT NULL UNIQUE,
   description TEXT,
   image_url TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS service_providers (
   user_id UUID REFERENCES users_profile(id) ON DELETE CASCADE,
   service_id UUID REFERENCES services(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
-  email TEXT NOT NULL,
+  email TEXT NOT NULL UNIQUE,
   phone TEXT,
   experience TEXT DEFAULT '3 years',
   address TEXT,
