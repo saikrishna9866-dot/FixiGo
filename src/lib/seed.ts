@@ -62,7 +62,13 @@ export const seedDatabase = async () => {
       body: JSON.stringify({ categories, services, providers, bookings, messages })
     });
 
-    const result = await response.json();
+    let result;
+    try {
+      const text = await response.text();
+      result = JSON.parse(text);
+    } catch (e) {
+      throw new Error('Server returned invalid JSON. It might be restarting, please try again.');
+    }
     if (!response.ok) throw new Error(result.error || 'Seed failed');
 
     return { success: true };
@@ -75,7 +81,13 @@ export const seedDatabase = async () => {
 export const clearDatabase = async () => {
   try {
     const response = await fetch('/api/admin/clear', { method: 'POST' });
-    const result = await response.json();
+    let result;
+    try {
+      const text = await response.text();
+      result = JSON.parse(text);
+    } catch (e) {
+      throw new Error('Server returned invalid JSON. It might be restarting, please try again.');
+    }
     if (!response.ok) throw new Error(result.error || 'Clear failed');
     return { success: true };
   } catch (error: any) {

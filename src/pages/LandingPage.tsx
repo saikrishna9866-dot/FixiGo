@@ -67,7 +67,7 @@ const HeroSection: React.FC<{
             Search
           </button>
           <Link
-            to="/admin/login"
+            to="/admin/dashboard"
             className="hidden md:flex items-center justify-center w-14 h-14 ml-4 bg-white border border-gray-100 rounded-2xl text-gray-400 hover:text-yellow-500 hover:border-yellow-200 hover:shadow-lg transition-all group"
             title="Admin Dashboard"
           >

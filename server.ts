@@ -66,7 +66,7 @@ app.post("/api/admin/query", async (req, res) => {
     res.json(result.data);
   } catch (error: any) {
     console.error(`Admin Query Error (${table} - ${action}):`, error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message || JSON.stringify(error) || 'Unknown database error' });
   }
 });
 
@@ -78,74 +78,86 @@ app.post("/api/admin/delete-user", async (req, res) => {
     if (error) throw error;
     res.json({ success: true });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error("Delete User Error:", error);
+    res.status(500).json({ error: error.message || JSON.stringify(error) || 'Failed to delete user' });
   }
 });
 
 // Seed Database Route
 app.post("/api/admin/seed", async (_req, res) => {
   try {
-    const { categories, services, providers, bookings, messages } = _req.body;
+    const { categories, services, providers, messages } = _req.body;
 
     // 1. Categories
-    const { data: insertedCategories, error: catError } = await supabaseAdmin
-      .from('categories')
-      .upsert(categories, { onConflict: 'name' })
-      .select();
-    if (catError) throw catError;
+    const { data: existingCats } = await supabaseAdmin.from('categories').select('*');
+    const existingCatNames = new Set(existingCats?.map(c => c.name) || []);
+    const newCategories = categories.filter((c: any) => !existingCatNames.has(c.name));
+    
+    let allCategories = [...(existingCats || [])];
+    if (newCategories.length > 0) {
+      const { data: insertedCategories, error: catError } = await supabaseAdmin
+        .from('categories')
+        .insert(newCategories)
+        .select();
+      if (catError) throw catError;
+      allCategories.push(...(insertedCategories || []));
+    }
 
-    const categoryMap = new Map(insertedCategories?.map(c => [c.name, c.id]) || []);
+    const categoryMap = new Map(allCategories.map(c => [c.name, c.id]));
 
     // 2. Services
-    const servicesToInsert = services.map((s: any) => ({
-      ...s,
-      category_id: categoryMap.get(s.category_name)
-    }));
-    // Remove temporary category_name
-    servicesToInsert.forEach((s: any) => delete s.category_name);
+    const { data: existingServices } = await supabaseAdmin.from('services').select('*');
+    const existingServiceTitles = new Set(existingServices?.map(s => s.title) || []);
+    
+    const servicesToInsert = services
+      .filter((s: any) => !existingServiceTitles.has(s.title))
+      .map((s: any) => ({
+        title: s.title,
+        description: s.description,
+        image_url: s.image_url,
+        category_id: categoryMap.get(s.category_name)
+      }));
 
-    const { data: insertedServices, error: serError } = await supabaseAdmin
-      .from('services')
-      .upsert(servicesToInsert, { onConflict: 'title' })
-      .select();
-    if (serError) throw serError;
+    let allServices = [...(existingServices || [])];
+    if (servicesToInsert.length > 0) {
+      const { data: insertedServices, error: serError } = await supabaseAdmin
+        .from('services')
+        .insert(servicesToInsert)
+        .select();
+      if (serError) throw serError;
+      allServices.push(...(insertedServices || []));
+    }
 
-    const serviceMap = new Map(insertedServices?.map(s => [s.title, s.id]) || []);
+    const serviceMap = new Map(allServices.map(s => [s.title, s.id]));
 
     // 3. Providers
-    const providersToInsert = providers.map((p: any) => ({
-      ...p,
-      service_id: serviceMap.get(p.service_title)
-    }));
-    providersToInsert.forEach((p: any) => delete p.service_title);
+    const { data: existingProviders } = await supabaseAdmin.from('service_providers').select('*');
+    const existingProviderEmails = new Set(existingProviders?.map(p => p.email) || []);
+    
+    const providersToInsert = providers
+      .filter((p: any) => !existingProviderEmails.has(p.email))
+      .map((p: any) => ({
+        name: p.name,
+        email: p.email,
+        phone: p.phone,
+        experience: p.experience,
+        address: p.address,
+        availability: p.availability,
+        service_id: serviceMap.get(p.service_title)
+      }));
 
-    const { data: insertedProviders, error: provError } = await supabaseAdmin
-      .from('service_providers')
-      .upsert(providersToInsert, { onConflict: 'email' })
-      .select();
-    if (provError) throw provError;
+    let allProviders = [...(existingProviders || [])];
+    if (providersToInsert.length > 0) {
+      const { data: insertedProviders, error: provError } = await supabaseAdmin
+        .from('service_providers')
+        .insert(providersToInsert)
+        .select();
+      if (provError) throw provError;
+      allProviders.push(...(insertedProviders || []));
+    }
 
-    // 4. User Profile for Demo
-    const dummyUserId = '00000000-0000-0000-0000-000000000000';
-    await supabaseAdmin.from('users_profile').upsert({
-      id: dummyUserId,
-      email: 'demo@example.com',
-      full_name: 'Demo User'
-    }, { onConflict: 'id' });
-
-    // 5. Bookings
-    const bookingsToInsert = bookings.map((b: any) => ({
-      ...b,
-      user_id: dummyUserId,
-      service_id: serviceMap.get(b.service_title),
-      provider_id: insertedProviders?.[0]?.id // Just use the first one for demo
-    }));
-    bookingsToInsert.forEach((b: any) => delete b.service_title);
-
-    const { error: bookError } = await supabaseAdmin.from('bookings').insert(bookingsToInsert);
-    if (bookError) console.warn('Booking seed warning:', bookError.message);
-
-    // 6. Messages
+    // We will not seed dummy users or bookings to avoid DB FK errors and demo data corruption.
+    // 4. Messages
     if (messages && messages.length > 0) {
       await supabaseAdmin.from('contact_messages').insert(messages);
     }
@@ -161,16 +173,31 @@ app.post("/api/admin/seed", async (_req, res) => {
 app.post("/api/admin/clear", async (_req, res) => {
   try {
     // Order matters because of foreign keys
-    await supabaseAdmin.from('contact_messages').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabaseAdmin.from('bookings').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabaseAdmin.from('service_providers').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabaseAdmin.from('services').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabaseAdmin.from('categories').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    
+    // 1. Delete messages
+    const resMsg = await supabaseAdmin.from('contact_messages').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    if (resMsg.error) throw resMsg.error;
+
+    // 2. Delete bookings
+    const resBook = await supabaseAdmin.from('bookings').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    if (resBook.error) throw resBook.error;
+
+    // 3. Delete service_providers
+    const resProv = await supabaseAdmin.from('service_providers').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    if (resProv.error) throw resProv.error;
+
+    // 4. Delete services
+    const resServ = await supabaseAdmin.from('services').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    if (resServ.error) throw resServ.error;
+
+    // 5. Delete categories
+    const resCat = await supabaseAdmin.from('categories').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    if (resCat.error) throw resCat.error;
     
     res.json({ success: true });
   } catch (error: any) {
     console.error("Clear Error:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message || 'Error clearing database' });
   }
 });
 

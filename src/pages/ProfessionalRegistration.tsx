@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, safeGetSession } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   User, Mail, Phone, Wrench, MapPin, Upload, Calendar, 
   Loader2, ArrowRight, ArrowLeft, CheckCircle, Briefcase, FileText,
-  Clock, Star, ShieldCheck
+  Clock, Star
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
@@ -38,41 +38,40 @@ export const ProfessionalRegistration: React.FC = () => {
   });
 
   const [isChecking, setIsChecking] = useState(true);
-  const [alreadyProfessional, setAlreadyProfessional] = useState(false);
 
   useEffect(() => {
     const checkProfessionalStatus = async () => {
       try {
-        const { data } = await safeGetSession();
-        const session = data?.session;
-        if (session?.user) {
-          // Check if already a professional
-          const isProf = await professionalService.isProfessional(session.user.id);
-          if (isProf) {
-            setAlreadyProfessional(true);
-            setIsChecking(false);
-            return;
-          }
-
-          // Pre-fill data from profile
-          const { data: profileData } = await supabase.from('users_profile')
-            .select('full_name, email, phone')
-            .eq('id', session.user.id)
-            .maybeSingle();
-          
-          if (profileData) {
-            setFormData(prev => ({
-              ...prev,
-              name: profileData.full_name || '',
-              email: profileData.email || '',
-              phone: profileData.phone || ''
-            }));
-          }
-        } else {
-          // Not logged in - redirect to login
-          toast.error('Please login to register as a professional');
-          navigate('/login?redirect=/register-professional');
+        const { data: authData } = await supabase.auth.getUser();
+        let userId = authData.user?.id;
+        
+        if (!userId) {
+          toast.error("Please login to register as a professional");
+          navigate('/');
           return;
+        }
+
+        // Check if already a professional
+        const isProf = await professionalService.isProfessional(userId);
+        if (isProf) {
+          toast.info("You are already registered as a professional.");
+          navigate('/provider-dashboard');
+          return;
+        }
+
+        // Fetch from profile if exists
+        const { data: profileData } = await supabase.from('users_profile')
+          .select('full_name, email, phone')
+          .eq('id', userId)
+          .maybeSingle();
+
+        if (profileData) {
+          setFormData(prev => ({
+            ...prev,
+            name: profileData.full_name || '',
+            email: profileData.email || '',
+            phone: profileData.phone || ''
+          }));
         }
       } catch (err) {
         console.error('Error checking professional status:', err);
@@ -82,7 +81,7 @@ export const ProfessionalRegistration: React.FC = () => {
     };
 
     checkProfessionalStatus();
-  }, [navigate]);
+  }, []);
 
   const categoryServices = formData.category_id 
     ? (services || []).filter(s => s.category_id === formData.category_id)
@@ -136,11 +135,14 @@ export const ProfessionalRegistration: React.FC = () => {
 
     setLoading(true);
     try {
-      const { data } = await safeGetSession();
-      const session = data?.session;
-      if (!session?.user) throw new Error('You must be logged in to register');
-
-      const userId = session.user.id;
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData.user?.id;
+      
+      if (!userId) {
+        toast.error("Please login to complete registration");
+        navigate('/');
+        return;
+      }
 
       // 1. Upload Documents to Storage if present
       let profilePhotoUrl = '';
@@ -216,32 +218,6 @@ export const ProfessionalRegistration: React.FC = () => {
           <Loader2 className="animate-spin text-yellow-500 mx-auto mb-4" size={48} />
           <p className="text-gray-500 font-medium tracking-tight">Verifying your status...</p>
         </div>
-      </div>
-    );
-  }
-
-  if (alreadyProfessional) {
-    return (
-      <div className="pt-32 pb-12 min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="max-w-md w-full bg-white rounded-3xl p-10 shadow-2xl border border-gray-100 text-center"
-        >
-          <div className="w-20 h-20 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-6">
-            <ShieldCheck className="text-yellow-600" size={40} />
-          </div>
-          <h2 className="text-3xl font-bold text-black mb-4 tracking-tight">Already a Professional</h2>
-          <p className="text-gray-500 mb-8 leading-relaxed">
-            You are already registered as a professional on FixiGo. You can manage your services and bookings from your dashboard.
-          </p>
-          <button
-            onClick={() => navigate('/')}
-            className="w-full bg-black text-white py-4 rounded-xl font-bold hover:bg-gray-800 transition-all shadow-lg"
-          >
-            Go to Home
-          </button>
-        </motion.div>
       </div>
     );
   }

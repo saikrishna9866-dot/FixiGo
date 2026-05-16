@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase, safeGetUser } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   MapPin, Calendar, FileText, User, Users, CreditCard, 
@@ -112,6 +112,12 @@ export const BookingPage: React.FC = () => {
       }
     }
 
+    if (!serviceId || !isValidUuid(serviceId)) {
+      toast.error('Invalid service ID');
+      navigate('/services');
+      return;
+    }
+
     try {
       // Fetch service
       const { data: serviceData, error: serviceError } = await supabase
@@ -131,13 +137,9 @@ export const BookingPage: React.FC = () => {
 
       if (providerError) throw providerError;
       
-      // If no providers, mock some for demo purposes
+      // If no providers, just set to empty array. The user can still create an unassigned booking.
       if (!providerData || providerData.length === 0) {
-        setProviders([
-          { id: 'mock-1', name: 'Alex Johnson', rating: 4.8, experience: '5 years', phone: '+1234567890' },
-          { id: 'mock-2', name: 'Sarah Williams', rating: 4.9, experience: '7 years', phone: '+1987654321' },
-          { id: 'mock-3', name: 'David Chen', rating: 4.6, experience: '3 years', phone: '+1122334455' }
-        ]);
+        setProviders([]);
       } else {
         setProviders(providerData);
       }
@@ -206,30 +208,29 @@ export const BookingPage: React.FC = () => {
   const submitBooking = async () => {
     setSubmitting(true);
     try {
-      const { data } = await safeGetUser();
-      const user = data?.user;
-      if (!user) {
-        // Generate a random temp ID
-        const tempId = Math.random().toString(36).substring(2, 15);
-        
-        // Save to pending_bookings table
-        await supabase.from('pending_bookings').insert({
-          temp_id: tempId,
-          booking_data: {
-            serviceId,
-            formData,
-            step
-          }
-        });
-
-        toast.error('Please login to confirm booking');
-        const redirectUrl = encodeURIComponent(`/book/${serviceId}?pending_id=${tempId}`);
-        navigate(`/login?redirect=${redirectUrl}`);
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !authData.user) {
+        toast.error('You must be logged in to confirm a booking');
+        // Redirect to login or open login modal
+        navigate('/login'); 
         return;
       }
+      
+      const userId = authData.user.id;
+      const userEmail = authData.user.email || 'user@example.com';
+      const userMetadata = authData.user.user_metadata || {};
+
+      console.log('Booking user:', userId);
+
+      const userToProfile = {
+        id: userId,
+        email: userEmail,
+        user_metadata: userMetadata
+      };
 
       // Ensure user profile exists
-      await bookingService.ensureUserProfile(user);
+      await bookingService.ensureUserProfile(userToProfile);
 
       // Calculate price
       const basePrice = 499;
@@ -239,8 +240,9 @@ export const BookingPage: React.FC = () => {
       // Submit booking using service
       const result = await bookingService.createBooking({
         serviceId: serviceId || '',
+        serviceTitle: service?.title,
         providerId: formData.providerId,
-        userId: user.id,
+        userId: userId,
         address: formData.address,
         city: formData.city,
         pincode: formData.pincode,
@@ -249,8 +251,6 @@ export const BookingPage: React.FC = () => {
         problemDescription: formData.description,
         totalPrice: totalPrice
       });
-      
-      // Clear pending booking on success (already handled by restorePendingBooking if it was a restoration)
       
       setBookingResult(result);
       setStep(5); // Confirmation step

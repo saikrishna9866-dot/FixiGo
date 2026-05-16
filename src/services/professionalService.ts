@@ -19,13 +19,14 @@ export const professionalService = {
    * Registers a new service provider
    */
   async registerProfessional(data: ProfessionalData) {
-    // Sanitize serviceId - if it's not a valid UUID (mock data), set to null
-    const sanitizedServiceId = data.serviceId && isValidUuid(data.serviceId) ? data.serviceId : null;
+    if (!data.serviceId || !isValidUuid(data.serviceId)) {
+      throw new Error('Invalid or missing Service ID. Please select a valid service.');
+    }
 
     try {
       const { data: result, error } = await supabase.from('service_providers').insert({
         user_id: data.userId, // Link to the authenticated user
-        service_id: sanitizedServiceId,
+        service_id: data.serviceId,
         name: data.name,
         email: data.email,
         phone: data.phone,

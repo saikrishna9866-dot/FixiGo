@@ -32,7 +32,6 @@ import { toast } from 'sonner';
 import { cn, formatDate, isValidUuid } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { ProviderLogo } from '../components/ProviderLogo';
-import { useAuth } from '../context/AuthContext';
 import { BackButton } from '../components/BackButton';
 
 // --- Types & Constants ---
@@ -69,57 +68,6 @@ const STATUS_FLOW: Record<JobStatus, { next?: JobStatus; label: string; color: s
 };
 
 // --- Mock Data ---
-
-const MOCK_JOBS: Job[] = [
-  {
-    id: 'job-101',
-    service_name: 'Deep Kitchen Cleaning',
-    customer_name: 'Rahul Sharma',
-    customer_phone: '+91 98765 43210',
-    address: 'Flat 402, Sunrise Apartments, Sector 45, Gurgaon',
-    booking_date: new Date().toISOString(),
-    booking_time: '10:00 AM',
-    status: 'assigned',
-    price: 1200,
-    commission: 240,
-    net_earnings: 960,
-    description: 'Full kitchen deep cleaning including chimney and cabinets. Customer requested eco-friendly chemicals.',
-    distance: '2.4 km',
-    expires_at: Date.now() + 1000 * 60 * 15 // 15 mins from now
-  },
-  {
-    id: 'job-102',
-    service_name: 'AC Service (Split)',
-    customer_name: 'Priya Verma',
-    customer_phone: '+91 88776 55443',
-    address: 'House No. 12, Lane 4, DLF Phase 3, Gurgaon',
-    booking_date: new Date().toISOString(),
-    booking_time: '02:30 PM',
-    status: 'accepted',
-    price: 800,
-    commission: 160,
-    net_earnings: 640,
-    description: 'Regular AC service and filter cleaning. Cooling is low.',
-    distance: '4.8 km',
-    expires_at: Date.now() - 1000 * 60 * 5
-  },
-  {
-    id: 'job-103',
-    service_name: 'Bathroom Sanitization',
-    customer_name: 'Amit Gupta',
-    customer_phone: '+91 77665 44332',
-    address: 'Tower C, M3M Golf Estate, Sector 65, Gurgaon',
-    booking_date: new Date(Date.now() - 86400000).toISOString(),
-    booking_time: '11:00 AM',
-    status: 'completed',
-    price: 600,
-    commission: 120,
-    net_earnings: 480,
-    description: 'Standard bathroom cleaning and sanitization.',
-    distance: '7.2 km',
-    expires_at: Date.now() - 86400000
-  }
-];
 
 // --- Components ---
 
@@ -460,7 +408,6 @@ const VerificationModal = ({ job, onClose, onVerify }: any) => {
 
 export const ProviderDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(true);
@@ -496,109 +443,84 @@ export const ProviderDashboard: React.FC = () => {
 
   const isFetching = useRef(false);
 
-  const fetchBookings = async (providerId: string) => {
-    try {
-      // Fetch both:
-      // 1. Bookings already assigned to this provider
-      // 2. All pending bookings (the "Open Pool")
-      const { data, error } = await supabase
-        .from('bookings')
-        .select(`
-          *,
-          services (title, description),
-          user_profiles:user_id (full_name, phone)
-        `)
-        .or(`provider_id.eq.${providerId},status.eq.pending`)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      if (data) {
-        const mappedBookings: Job[] = data.map((b: any) => ({
-          id: b.id,
-          service_name: b.services?.title || 'Unknown Service',
-          customer_name: b.user_profiles?.full_name || 'Customer',
-          customer_phone: b.user_profiles?.phone || 'N/A',
-          address: b.address || 'No address provided',
-          booking_date: b.booking_date,
-          booking_time: b.booking_time,
-          status: b.status as JobStatus,
-          price: b.total_price || 0,
-          commission: (b.total_price || 0) * 0.2,
-          net_earnings: (b.total_price || 0) * 0.8,
-          description: b.notes || b.services?.description || '',
-          distance: 'N/A',
-          expires_at: Date.now() + 1000 * 60 * 60,
-          is_open_pool: !b.provider_id || b.provider_id !== providerId,
-          track_order_number: b.track_order_number
-        }));
-        setBookings(mappedBookings);
-      }
-    } catch (error) {
-      console.error('Error fetching bookings:', error);
-    }
-  };
-
   useEffect(() => {
-    let channel: any;
     let mounted = true;
     
     const setup = async () => {
-      if (user) {
-        try {
-          if (isFetching.current) return;
-          isFetching.current = true;
+      try {
+        if (isFetching.current) return;
+        isFetching.current = true;
 
-          // Try to fetch real provider data
-          const { data: providerData } = await supabase
-            .from('service_providers')
-            .select(`*, services (title)`)
-            .eq('user_id', user.id)
-            .maybeSingle();
-
-          if (!mounted) return;
-
-          if (providerData) {
-            setProvider(providerData);
-            setIsOnline(providerData.availability?.is_online ?? true);
-            await fetchBookings(providerData.id);
-            
-            if (!mounted) return;
-
-            // Set up real-time subscription
-            channel = supabase
-              .channel(`provider-dashboard-updates`)
-              .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'bookings' },
-                () => {
-                  if (mounted) fetchBookings(providerData.id);
-                }
-              )
-              .subscribe();
-          } else {
-            // Mock provider for demo if not found
-            setProvider({
-              id: 'mock-id',
-              name: user.email?.split('@')[0] || 'Partner',
-              services: { title: 'Multi-Service Expert' },
-              experience: '5+ Years',
-              phone: '+91 99887 76655',
-              email: user.email
-            });
-            setBookings(MOCK_JOBS);
-          }
-        } catch (error) {
-          console.error('Error fetching dashboard data:', error);
-          if (mounted) toast.error('Failed to load dashboard data');
-        } finally {
-          if (mounted) {
-            isFetching.current = false;
-            setLoading(false);
-          }
+        const { data: authData } = await supabase.auth.getUser();
+        if (!authData.user) {
+          toast.error("Please login to access Provider Dashboard");
+          navigate('/');
+          return;
         }
-      } else {
-        if (mounted) setLoading(false);
+
+        // Fetch provider profile
+        const { data: providerData, error: providerError } = await supabase
+          .from('service_providers')
+          .select(`
+            *,
+            services(title)
+          `)
+          .eq('user_id', authData.user.id)
+          .maybeSingle();
+
+        if (providerError) {
+          throw new Error('Failed to fetch provider details: ' + providerError.message);
+        }
+
+        if (!providerData) {
+          toast.error('You are not registered as a professional');
+          navigate('/');
+          return;
+        }
+
+        setProvider(providerData);
+
+        // Fetch jobs for this provider AND open jobs
+        const { data: bookingsData, error: bookingsError } = await supabase
+          .from('bookings')
+          .select(`
+            *,
+            services(title),
+            users_profile(full_name, phone)
+          `)
+          .or(`provider_id.eq.${providerData.id},provider_id.is.null`)
+          .order('created_at', { ascending: false });
+
+        if (bookingsError) {
+          console.error("Database fetch failed:", bookingsError.message);
+        } else if (bookingsData) {
+          const mappedJobs: Job[] = bookingsData.map(b => ({
+            id: b.id,
+            service_name: b.services?.title || 'Unknown Service',
+            customer_name: b.users_profile?.full_name || b.user_id,
+            customer_phone: b.users_profile?.phone || 'Not available',
+            address: `${b.address}, ${b.city} - ${b.pincode}`,
+            booking_date: b.booking_date,
+            booking_time: b.booking_time,
+            status: b.status as JobStatus,
+            price: b.total_price || 0,
+            commission: (b.total_price || 0) * 0.2, // estimated 20% commission
+            net_earnings: (b.total_price || 0) * 0.8,
+            description: b.problem_description || 'No description provided.',
+            distance: 'N/A',
+            expires_at: Date.now() + 1000 * 60 * 15, // placeholder
+            is_open_pool: !b.provider_id,
+            track_order_number: b.track_order_number
+          }));
+          setBookings(mappedJobs);
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        if (mounted) {
+          isFetching.current = false;
+          setLoading(false);
+        }
       }
     };
 
@@ -607,9 +529,8 @@ export const ProviderDashboard: React.FC = () => {
     return () => {
       mounted = false;
       isFetching.current = false;
-      if (channel) supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, []);
 
   const handleStatusUpdate = async (jobId: string, newStatus: JobStatus) => {
     // Verification check for starting a job
@@ -622,30 +543,28 @@ export const ProviderDashboard: React.FC = () => {
     }
 
     try {
-      const isRealJob = isValidUuid(jobId);
-      
-      if (isRealJob) {
-        const updateData: any = { status: newStatus };
-        
-        // If claiming an open job, assign this provider
-        const job = bookings.find(b => b.id === jobId);
-        if (job?.is_open_pool && newStatus === 'accepted') {
-          // Only set provider_id if it's a real provider
-          if (provider?.id && isValidUuid(provider.id)) {
-            updateData.provider_id = provider.id;
-          } else {
-            // If it's a real job but we're a mock provider, we can't accept it in DB
-            throw new Error('You must be a registered professional to accept real jobs.');
-          }
-        }
-
-        const { error } = await supabase
-          .from('bookings')
-          .update(updateData)
-          .eq('id', jobId);
-
-        if (error) throw error;
+      if (!isValidUuid(jobId)) {
+        throw new Error('Invalid Job ID');
       }
+      
+      const updateData: any = { status: newStatus };
+      
+      // If claiming an open job, assign this provider
+      const job = bookings.find(b => b.id === jobId);
+      if (job?.is_open_pool && newStatus === 'accepted') {
+        if (provider?.id && isValidUuid(provider.id)) {
+          updateData.provider_id = provider.id;
+        } else {
+          throw new Error('You must be a registered professional to accept jobs.');
+        }
+      }
+
+      const { error } = await supabase
+        .from('bookings')
+        .update(updateData)
+        .eq('id', jobId);
+
+      if (error) throw error;
 
       setBookings(prev => prev.map(job => 
         job.id === jobId ? { ...job, status: newStatus, is_open_pool: false } : job
@@ -665,8 +584,8 @@ export const ProviderDashboard: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    await signOut();
-    navigate('/provider/login');
+    toast.success('Partner view closed');
+    navigate('/');
   };
 
   if (loading) {

@@ -3,6 +3,7 @@ import { isValidUuid } from '../lib/utils';
 
 export interface BookingData {
   serviceId: string;
+  serviceTitle?: string;
   providerId: string;
   userId: string;
   address: string;
@@ -65,25 +66,46 @@ export const bookingService = {
    */
   async ensureUserProfile(user: { id: string; email?: string; user_metadata?: any }) {
     try {
-      const { data: profile } = await supabase
+      const { data: profile, error } = await supabase
         .from('users_profile')
         .select('id')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
+
+      if (error) {
+        throw error;
+      }
 
       if (!profile) {
+        // Generate a fallback email if it's missing (e.g. for guest)
+        const fallbackEmail = user.email || `guest_${user.id.substring(0, 8)}@example.com`;
+        
+        // Handle uniqueness collision: try to find if email exists
+        const { data: existingEmail } = await supabase
+          .from('users_profile')
+          .select('id')
+          .eq('email', fallbackEmail)
+          .maybeSingle();
+          
+        let finalEmail = fallbackEmail;
+        if (existingEmail && existingEmail.id !== user.id) {
+            finalEmail = `guest_${user.id.substring(0, 8)}_${Date.now()}@example.com`;
+        }
+        
         const { error: insertError } = await supabase.from('users_profile').insert({
           id: user.id,
-          email: user.email,
+          email: finalEmail,
           full_name: user.user_metadata?.name || 'User',
         });
         
         if (insertError) {
           console.error('Error creating user profile:', insertError);
+          throw insertError;
         }
       }
     } catch (error) {
       console.error('Error in ensureUserProfile:', error);
+      throw error;
     }
   },
 
@@ -106,39 +128,37 @@ export const bookingService = {
     }
 
     // If we have a UUID, check if it actually exists in the database
-    // to avoid foreign key constraint errors during demo/testing
     if (actualServiceId) {
-      try {
-        const { data: serviceExists } = await supabase
-          .from('services')
-          .select('id')
-          .eq('id', actualServiceId)
-          .single();
-        
-        if (!serviceExists) {
-          console.warn(`Service ID ${actualServiceId} not found in database. Setting to null for demo booking.`);
-          actualServiceId = null;
-        }
-      } catch (error) {
-        console.warn('Error checking service existence:', error);
-        actualServiceId = null;
+      const { data: serviceExists, error: serviceError } = await supabase
+        .from('services')
+        .select('id, title')
+        .eq('id', actualServiceId)
+        .maybeSingle();
+
+      if (serviceError) {
+        throw new Error(`Database error when checking service: ${serviceError.message}`);
       }
+
+      if (!serviceExists) {
+        throw new Error(`Service ID ${actualServiceId} not found in database.`);
+      }
+    } else {
+      throw new Error(`Invalid or missing Service ID.`);
     }
 
     if (actualProviderId) {
-      try {
-        const { data: providerExists } = await supabase
-          .from('service_providers')
-          .select('id')
-          .eq('id', actualProviderId)
-          .single();
-        
-        if (!providerExists) {
-          console.warn(`Provider ID ${actualProviderId} not found in database. Setting to null for demo booking.`);
-          actualProviderId = null;
-        }
-      } catch (error) {
-        console.warn('Error checking provider existence:', error);
+      const { data: providerExists, error: providerError } = await supabase
+        .from('service_providers')
+        .select('id')
+        .eq('id', actualProviderId)
+        .maybeSingle();
+
+      if (providerError) {
+        throw new Error(`Database error when checking provider: ${providerError.message}`);
+      }
+
+      if (!providerExists) {
+        // Since providers are optional (unassigned booking), we don't block the booking but we unset the providerId.
         actualProviderId = null;
       }
     }
@@ -166,29 +186,28 @@ export const bookingService = {
       bookingPayload.image_url = imageUrl;
     }
 
-    let { data: result, error } = await supabase.from('bookings').insert(bookingPayload).select().single();
+    try {
+      let { data: result, error } = await supabase.from('bookings').insert(bookingPayload).select().single();
 
-    if (error) {
-      console.error('Booking submission error:', error);
-      
-      // If the error is about the image_url column missing, try again without it
-      if (error.message.includes('image_url') && bookingPayload.image_url) {
-        console.warn('image_url column missing in bookings table. Retrying without image.');
-        delete bookingPayload.image_url;
-        const retry = await supabase.from('bookings').insert(bookingPayload).select().single();
-        if (retry.error) throw retry.error;
-        return retry.data;
+      if (error) {
+        console.error('Booking submission error:', error);
+        
+        // If the error is about the image_url column missing, try again without it
+        if (error.message.includes('image_url') && bookingPayload.image_url) {
+          console.warn('image_url column missing in bookings table. Retrying without image.');
+          delete bookingPayload.image_url;
+          const retry = await supabase.from('bookings').insert(bookingPayload).select().single();
+          if (retry.error) throw retry.error;
+          return retry.data;
+        }
+
+        throw error;
       }
 
-      if (error.message.includes('uuid')) {
-        throw new Error('Invalid ID format. Please ensure you are using real service and provider data.');
-      }
-      if (error.message.includes('foreign key')) {
-        throw new Error('Database constraint error. This usually happens when using demo data that hasn\'t been seeded to your database. Please visit the Admin Dashboard to seed demo data.');
-      }
+      return result;
+    } catch (error: any) {
+      console.error('Catch block in createBooking:', error);
       throw error;
     }
-
-    return result;
   }
 };

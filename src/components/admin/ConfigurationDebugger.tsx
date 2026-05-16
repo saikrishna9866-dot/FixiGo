@@ -102,6 +102,17 @@ CREATE TABLE IF NOT EXISTS bookings (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS contact_messages (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  full_name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone_number TEXT,
+  service_type TEXT,
+  message TEXT NOT NULL,
+  status TEXT DEFAULT 'pending',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
 -- Ensure columns exist for bookings
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS address TEXT;
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS city TEXT;
@@ -123,6 +134,7 @@ ALTER TABLE services DISABLE ROW LEVEL SECURITY;
 ALTER TABLE service_providers DISABLE ROW LEVEL SECURITY;
 ALTER TABLE bookings DISABLE ROW LEVEL SECURITY;
 ALTER TABLE users_profile DISABLE ROW LEVEL SECURITY;
+ALTER TABLE contact_messages DISABLE ROW LEVEL SECURITY;
 
 -- 3. Setup Storage for Service Images
 -- Create the bucket if it doesn't exist

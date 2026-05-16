@@ -1,23 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../context/AuthContext';
-import { Loader2, Calendar, User, Wrench, Clock } from 'lucide-react';
-import { toast } from 'sonner';
+import { Loader2, Calendar, User, Wrench, Clock, X, MapPin } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { BackButton } from '../components/BackButton';
 
 export const DashboardPage: React.FC = () => {
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
 
   useEffect(() => {
     let mounted = true;
     let bookingsChannel: any;
 
     const fetchBookings = async () => {
-      if (!user) return;
       setLoading(true);
+      
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData.user?.id;
+      
+      if (!userId) {
+        setLoading(false);
+        // Usually handled by route guards but just in case
+        return;
+      }
+      
+      let dbBookings: any[] = [];
       try {
         const { data, error } = await supabase
           .from('bookings')
@@ -27,47 +35,69 @@ export const DashboardPage: React.FC = () => {
             service_providers(name),
             users_profile(full_name)
           `)
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .order('created_at', { ascending: false });
 
-        if (error) throw error;
-        if (mounted) setBookings(data || []);
+        if (error) {
+          console.warn('Database fetch failed:', error.message);
+        } else if (data) {
+          dbBookings = data;
+        }
       } catch (error) {
-        console.error('Error fetching bookings:', error);
-        if (mounted) toast.error('Failed to load bookings');
-      } finally {
-        if (mounted) setLoading(false);
+        console.error('Network error fetching bookings:', error);
+      } 
+
+      // Clean up legacy local storage data if it exists
+      try {
+        localStorage.removeItem('fixigo_demo_bookings');
+      } catch (e) {
+        // ignore
+      }
+
+      // Merge and sort
+      if (mounted) {
+        const allBookings = [...dbBookings].sort((a, b) => {
+          return new Date(b.created_at || b.booking_date).getTime() - new Date(a.created_at || a.booking_date).getTime();
+        });
+        
+        setBookings(allBookings);
+        
+        setLoading(false);
       }
     };
 
-    if (user) {
-      fetchBookings();
+    fetchBookings();
 
-      // Set up real-time subscription for this user's bookings
+    const setupSubscription = async () => {
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData.user?.id;
+      
+      if (!userId) return;
+
       bookingsChannel = supabase
-        .channel(`user-bookings-${user.id}`)
+        .channel(`user-bookings-${userId}`)
         .on(
           'postgres_changes',
           { 
             event: '*', 
             schema: 'public', 
             table: 'bookings',
-            filter: `user_id=eq.${user.id}`
+            filter: `user_id=eq.${userId}`
           },
           () => {
             if (mounted) fetchBookings();
           }
         )
         .subscribe();
-    } else {
-      setLoading(false);
-    }
+    };
+    
+    setupSubscription();
 
     return () => {
       mounted = false;
       if (bookingsChannel) supabase.removeChannel(bookingsChannel);
     };
-  }, [user]);
+  }, []);
 
   if (loading) {
     return (
@@ -145,7 +175,10 @@ export const DashboardPage: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <button className="text-sm font-bold text-yellow-600 hover:text-yellow-700">
+                      <button 
+                        onClick={() => setSelectedBooking(booking)}
+                        className="text-sm font-bold text-yellow-600 hover:text-yellow-700"
+                      >
                         View Details
                       </button>
                     </td>
@@ -156,6 +189,99 @@ export const DashboardPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* View Details Modal */}
+      {selectedBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-8 relative shadow-2xl overflow-y-auto max-h-[90vh]">
+            <button 
+              onClick={() => setSelectedBooking(null)}
+              className="absolute top-6 right-6 p-2 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <X size={24} className="text-gray-500" />
+            </button>
+            <h2 className="text-3xl font-bold text-gray-900 mb-6 border-b pb-4">Booking Details</h2>
+            
+            <div className="space-y-6">
+              <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                    <Wrench className="text-yellow-600" size={24} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-xl text-gray-900">
+                      {selectedBooking.services?.title || 'Unknown Service'}
+                    </h3>
+                    <p className="text-gray-500 font-medium tracking-wide">Ref: #{selectedBooking.id.substring(0, 8)}</p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Status</p>
+                    <span className={cn(
+                        "px-3 py-1 inline-block rounded-full text-xs font-bold uppercase tracking-wider",
+                        selectedBooking.status === 'pending' ? "bg-purple-100 text-purple-800" :
+                        selectedBooking.status === 'assigned' ? "bg-blue-100 text-blue-800" :
+                        selectedBooking.status === 'accepted' ? "bg-indigo-100 text-indigo-800" :
+                        selectedBooking.status === 'on_the_way' ? "bg-yellow-100 text-yellow-800" :
+                        selectedBooking.status === 'in_progress' ? "bg-orange-100 text-orange-800" :
+                        selectedBooking.status === 'completed' ? "bg-green-100 text-green-800" :
+                        selectedBooking.status === 'cancelled' ? "bg-red-100 text-red-800" :
+                        "bg-gray-100 text-gray-800"
+                      )}>
+                        {selectedBooking.status.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Date & Time</p>
+                    <p className="font-bold text-gray-900">
+                      {selectedBooking.booking_date} at {selectedBooking.booking_time}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
+                <h4 className="font-bold text-blue-900 mb-3 flex items-center gap-2">
+                  <User size={18} /> Provider Details
+                </h4>
+                {selectedBooking.service_providers ? (
+                    <div>
+                      <p className="font-bold text-gray-900">{selectedBooking.service_providers.name}</p>
+                      {selectedBooking.service_providers.phone && <p className="text-gray-600">{selectedBooking.service_providers.phone}</p>}
+                    </div>
+                ) : (
+                  <p className="text-blue-800/80 italic">No provider assigned yet.</p>
+                )}
+              </div>
+              
+              <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                  <MapPin size={18} /> Location Details
+                </h4>
+                <div className="space-y-2">
+                   {selectedBooking.address ? (
+                     <p className="font-medium text-gray-700">{selectedBooking.address}</p>
+                   ) : <p className="text-gray-500 italic">No address provided.</p>}
+                   
+                   {selectedBooking.landmark && (
+                     <p className="text-sm text-gray-600 border-l-2 pl-3 border-gray-300">
+                       Landmark: {selectedBooking.landmark}
+                     </p>
+                   )}
+                   
+                   {(selectedBooking.city || selectedBooking.pincode) && (
+                     <p className="text-sm font-bold bg-white inline-block px-3 py-1 rounded-lg shadow-sm border border-gray-200">
+                       {selectedBooking.city || ''} {selectedBooking.pincode ? `- ${selectedBooking.pincode}` : ''}
+                     </p>
+                   )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

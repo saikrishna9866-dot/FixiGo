@@ -97,11 +97,6 @@ export const AdminDashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    const isAdmin = sessionStorage.getItem('admin_session') === 'true';
-    if (!isAdmin) {
-      navigate('/admin/login');
-      return;
-    }
     fetchAllData();
     testConnection();
 
@@ -151,7 +146,14 @@ export const AdminDashboard: React.FC = () => {
             signal: controller.signal
           });
           clearTimeout(timeoutId);
-          const data = await response.json();
+          const text = await response.text();
+          let data;
+          try {
+            data = JSON.parse(text);
+          } catch (jsonError) {
+            throw new Error(`Server returned invalid response (possibly unavailable or restarting). ${text.substring(0, 50)}...`);
+          }
+          
           if (!response.ok) throw new Error(data.error || `Failed to fetch ${table}`);
           return data;
         } catch (err: any) {
@@ -229,9 +231,8 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const handleLogout = () => {
-    sessionStorage.removeItem('admin_session');
-    toast.success('Logged out from admin panel');
-    navigate('/admin/login');
+    toast.success('Admin view closed');
+    navigate('/');
   };
 
   // CRUD Handlers
@@ -286,7 +287,13 @@ export const AdminDashboard: React.FC = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ table, action, ...options })
         });
-        const data = await response.json();
+        const text = await response.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          throw new Error('Server returned invalid response. It might be restarting.');
+        }
         if (!response.ok) throw new Error(data.error || `Failed to ${action} ${table}`);
         return data;
       };
@@ -339,7 +346,13 @@ export const AdminDashboard: React.FC = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ table, action, ...options })
         });
-        const data = await response.json();
+        const text = await response.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          throw new Error('Server returned invalid response. It might be restarting.');
+        }
         if (!response.ok) throw new Error(data.error || `Failed to ${action} ${table}`);
         return data;
       };

@@ -1,12 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, Search, ArrowRight, LogOut, Shield, Briefcase } from 'lucide-react';
+import { Menu, X, Search, ArrowRight, Shield, Briefcase } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
-import { supabase } from '../lib/supabase';
 import { useData } from '../context/DataContext';
-import { useAuth } from '../context/AuthContext';
-import { toast } from 'sonner';
 
 export const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -14,10 +11,8 @@ export const Navbar: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
-  const [isProvider, setIsProvider] = useState(false);
   
   const { services } = useData();
-  const { user, signOut } = useAuth();
   
   const location = useLocation();
   const navigate = useNavigate();
@@ -37,42 +32,11 @@ export const Navbar: React.FC = () => {
     };
     document.addEventListener('mousedown', handleClickOutside);
 
-    const checkProvider = async () => {
-      if (user) {
-        try {
-          await supabase
-            .from('service_providers')
-            .select('id')
-            .eq('user_id', user.id)
-            .maybeSingle();
-          
-          setIsProvider(true); // For the demo, we allow anyone who is logged in
-        } catch (error) {
-          setIsProvider(false);
-        }
-      } else {
-        setIsProvider(false);
-      }
-    };
-
-    checkProvider();
-
     return () => {
       window.removeEventListener('scroll', handleScroll);
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [user]);
-
-  const handleLogout = async () => {
-    try {
-      await signOut();
-      toast.success('Logged out successfully');
-      navigate('/');
-      setIsOpen(false);
-    } catch (error: any) {
-      toast.error('Logout failed');
-    }
-  };
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,66 +152,20 @@ export const Navbar: React.FC = () => {
             </div>
 
             <Link 
-              to="/register-professional" 
-              className="text-xs font-black uppercase tracking-widest px-5 py-2.5 rounded-xl border-2 border-gray-100 text-gray-600 hover:border-yellow-500 hover:text-yellow-600 transition-all"
-            >
-              Become a Pro
-            </Link>
-
-            <Link 
-              to="/admin/login" 
+              to="/admin/dashboard" 
               className="p-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-black hover:text-white transition-all"
               title="Admin Dashboard"
             >
               <Shield size={20} />
             </Link>
 
-            {isProvider && (
-              <Link 
-                to="/provider/dashboard" 
-                className="p-2.5 bg-yellow-100 text-yellow-700 rounded-xl hover:bg-yellow-500 hover:text-black transition-all"
-                title="Partner Dashboard"
-              >
-                <Briefcase size={20} />
-              </Link>
-            )}
-
-            {!user && (
-              <Link
-                to="/provider/login"
-                className="text-xs font-black uppercase tracking-widest text-gray-400 hover:text-yellow-600 transition-colors"
-                title="Partner Login"
-              >
-                Partner Login
-              </Link>
-            )}
-
-            {user ? (
-              <div className="flex items-center space-x-3">
-                <button
-                  onClick={handleLogout}
-                  className="p-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-red-500 hover:text-white transition-all"
-                  title="Logout"
-                >
-                  <LogOut size={20} />
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center space-x-4">
-                <Link
-                  to={`/login?redirect=${encodeURIComponent(location.pathname)}`}
-                  className="text-sm font-black uppercase tracking-widest text-gray-600 hover:text-yellow-600 transition-colors"
-                >
-                  Login
-                </Link>
-                <Link
-                  to={`/signup?redirect=${encodeURIComponent(location.pathname)}`}
-                  className="px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest bg-yellow-500 text-black shadow-lg shadow-yellow-500/20 hover:bg-yellow-600 transition-all active:scale-95"
-                >
-                  Sign Up
-                </Link>
-              </div>
-            )}
+            <Link 
+              to="/provider/dashboard" 
+              className="p-2.5 bg-yellow-100 text-yellow-700 rounded-xl hover:bg-yellow-500 hover:text-black transition-all"
+              title="Partner Dashboard"
+            >
+              <Briefcase size={20} />
+            </Link>
           </div>
 
           <div className="md:hidden flex items-center space-x-4">
@@ -288,62 +206,19 @@ export const Navbar: React.FC = () => {
               ))}
               <div className="pt-6 space-y-4">
                 <Link
-                  to="/register-professional"
-                  onClick={() => setIsOpen(false)}
-                  className="block w-full py-4 rounded-2xl text-center text-lg font-black bg-yellow-500 text-black shadow-lg shadow-yellow-500/20"
-                >
-                  Become a Pro
-                </Link>
-                <Link
-                  to="/admin/login"
+                  to="/admin/dashboard"
                   onClick={() => setIsOpen(false)}
                   className="block w-full py-4 rounded-2xl text-center text-lg font-black bg-gray-100 text-gray-600"
                 >
                   Admin Dashboard
                 </Link>
-                {isProvider && (
-                  <Link
-                    to="/provider/dashboard"
-                    onClick={() => setIsOpen(false)}
-                    className="block w-full py-4 rounded-2xl text-center text-lg font-black bg-yellow-100 text-yellow-700"
-                  >
-                    Partner Dashboard
-                  </Link>
-                )}
-                {!user && (
-                  <Link
-                    to="/provider/login"
-                    onClick={() => setIsOpen(false)}
-                    className="block w-full py-4 rounded-2xl text-center text-lg font-black bg-slate-100 text-slate-600"
-                  >
-                    Partner Login
-                  </Link>
-                )}
-                {user ? (
-                  <button
-                    onClick={handleLogout}
-                    className="block w-full py-4 rounded-2xl text-center text-lg font-black bg-red-500 text-white"
-                  >
-                    Logout
-                  </button>
-                ) : (
-                  <div className="grid grid-cols-2 gap-4">
-                    <Link
-                      to={`/login?redirect=${encodeURIComponent(location.pathname)}`}
-                      onClick={() => setIsOpen(false)}
-                      className="block py-4 rounded-2xl text-center text-lg font-black bg-gray-100 text-gray-600"
-                    >
-                      Login
-                    </Link>
-                    <Link
-                      to={`/signup?redirect=${encodeURIComponent(location.pathname)}`}
-                      onClick={() => setIsOpen(false)}
-                      className="block py-4 rounded-2xl text-center text-lg font-black bg-black text-white"
-                    >
-                      Sign Up
-                    </Link>
-                  </div>
-                )}
+                <Link
+                  to="/provider/dashboard"
+                  onClick={() => setIsOpen(false)}
+                  className="block w-full py-4 rounded-2xl text-center text-lg font-black bg-yellow-100 text-yellow-700"
+                >
+                  Partner Dashboard
+                </Link>
               </div>
             </div>
           </motion.div>
