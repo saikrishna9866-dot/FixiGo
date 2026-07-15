@@ -208,25 +208,14 @@ export const BookingPage: React.FC = () => {
   const submitBooking = async () => {
     setSubmitting(true);
     try {
-      const { data: authData, error: authError } = await supabase.auth.getUser();
+      // Use a guest ID since auth is removed
+      const userId = `guest_${Math.random().toString(36).substring(2, 10)}`;
       
-      if (authError || !authData.user) {
-        toast.error('You must be logged in to confirm a booking');
-        // Redirect to login or open login modal
-        navigate('/login'); 
-        return;
-      }
-      
-      const userId = authData.user.id;
-      const userEmail = authData.user.email || 'user@example.com';
-      const userMetadata = authData.user.user_metadata || {};
-
-      console.log('Booking user:', userId);
+      console.log('Booking as guest:', userId);
 
       const userToProfile = {
         id: userId,
-        email: userEmail,
-        user_metadata: userMetadata
+        email: `guest_${userId}@example.com`
       };
 
       // Ensure user profile exists

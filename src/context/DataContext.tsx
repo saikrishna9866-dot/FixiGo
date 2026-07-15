@@ -8,7 +8,6 @@ interface DataContextType {
   services: Service[];
   loadingCategories: boolean;
   loadingServices: boolean;
-  error: string | null;
   refetchCategories: () => Promise<void>;
   refetchServices: () => Promise<void>;
 }
@@ -20,7 +19,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [services, setServices] = useState<Service[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [loadingServices, setLoadingServices] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   const fetchCategories = useCallback(async () => {
     if (!isSupabaseConfigured) {
@@ -88,7 +86,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       services,
       loadingCategories,
       loadingServices,
-      error,
       refetchCategories: fetchCategories,
       refetchServices: fetchServices
     }}>

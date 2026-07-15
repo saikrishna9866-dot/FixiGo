@@ -451,36 +451,10 @@ export const ProviderDashboard: React.FC = () => {
         if (isFetching.current) return;
         isFetching.current = true;
 
-        const { data: authData } = await supabase.auth.getUser();
-        if (!authData.user) {
-          toast.error("Please login to access Provider Dashboard");
-          navigate('/');
-          return;
-        }
+        // No auth check needed, just fetch all jobs
+        setProvider({ name: 'System Admin' });
 
-        // Fetch provider profile
-        const { data: providerData, error: providerError } = await supabase
-          .from('service_providers')
-          .select(`
-            *,
-            services(title)
-          `)
-          .eq('user_id', authData.user.id)
-          .maybeSingle();
-
-        if (providerError) {
-          throw new Error('Failed to fetch provider details: ' + providerError.message);
-        }
-
-        if (!providerData) {
-          toast.error('You are not registered as a professional');
-          navigate('/');
-          return;
-        }
-
-        setProvider(providerData);
-
-        // Fetch jobs for this provider AND open jobs
+        // Fetch jobs for all providers
         const { data: bookingsData, error: bookingsError } = await supabase
           .from('bookings')
           .select(`
@@ -488,7 +462,6 @@ export const ProviderDashboard: React.FC = () => {
             services(title),
             users_profile(full_name, phone)
           `)
-          .or(`provider_id.eq.${providerData.id},provider_id.is.null`)
           .order('created_at', { ascending: false });
 
         if (bookingsError) {

@@ -310,6 +310,16 @@ export const AdminDashboard: React.FC = () => {
         const table = modalType === 'category' ? 'categories' : 'services';
         const data = { ...formData };
         
+        if (modalType === 'service') {
+          // Only include valid columns for services table
+          const allowedFields = ['category_id', 'title', 'description', 'image_url'];
+          Object.keys(data).forEach(key => {
+            if (!allowedFields.includes(key) && key !== 'id') {
+              delete data[key];
+            }
+          });
+        }
+
         if (editingItem) {
           await adminQuery(table, 'update', {
             data,

@@ -42,40 +42,10 @@ export const ProfessionalRegistration: React.FC = () => {
   useEffect(() => {
     const checkProfessionalStatus = async () => {
       try {
-        const { data: authData } = await supabase.auth.getUser();
-        let userId = authData.user?.id;
-        
-        if (!userId) {
-          toast.error("Please login to register as a professional");
-          navigate('/');
-          return;
-        }
-
-        // Check if already a professional
-        const isProf = await professionalService.isProfessional(userId);
-        if (isProf) {
-          toast.info("You are already registered as a professional.");
-          navigate('/provider-dashboard');
-          return;
-        }
-
-        // Fetch from profile if exists
-        const { data: profileData } = await supabase.from('users_profile')
-          .select('full_name, email, phone')
-          .eq('id', userId)
-          .maybeSingle();
-
-        if (profileData) {
-          setFormData(prev => ({
-            ...prev,
-            name: profileData.full_name || '',
-            email: profileData.email || '',
-            phone: profileData.phone || ''
-          }));
-        }
+        // Since auth is removed, just proceed
+        setIsChecking(false);
       } catch (err) {
         console.error('Error checking professional status:', err);
-      } finally {
         setIsChecking(false);
       }
     };
@@ -135,14 +105,8 @@ export const ProfessionalRegistration: React.FC = () => {
 
     setLoading(true);
     try {
-      const { data: authData } = await supabase.auth.getUser();
-      const userId = authData.user?.id;
-      
-      if (!userId) {
-        toast.error("Please login to complete registration");
-        navigate('/');
-        return;
-      }
+      // Use a generated ID for professional registration
+      const userId = `prof_${Math.random().toString(36).substring(2, 10)}`;
 
       // 1. Upload Documents to Storage if present
       let profilePhotoUrl = '';

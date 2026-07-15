@@ -16,15 +16,6 @@ export const DashboardPage: React.FC = () => {
     const fetchBookings = async () => {
       setLoading(true);
       
-      const { data: authData } = await supabase.auth.getUser();
-      const userId = authData.user?.id;
-      
-      if (!userId) {
-        setLoading(false);
-        // Usually handled by route guards but just in case
-        return;
-      }
-      
       let dbBookings: any[] = [];
       try {
         const { data, error } = await supabase
@@ -35,7 +26,6 @@ export const DashboardPage: React.FC = () => {
             service_providers(name),
             users_profile(full_name)
           `)
-          .eq('user_id', userId)
           .order('created_at', { ascending: false });
 
         if (error) {
@@ -69,20 +59,14 @@ export const DashboardPage: React.FC = () => {
     fetchBookings();
 
     const setupSubscription = async () => {
-      const { data: authData } = await supabase.auth.getUser();
-      const userId = authData.user?.id;
-      
-      if (!userId) return;
-
       bookingsChannel = supabase
-        .channel(`user-bookings-${userId}`)
+        .channel(`all-bookings`)
         .on(
           'postgres_changes',
           { 
             event: '*', 
             schema: 'public', 
-            table: 'bookings',
-            filter: `user_id=eq.${userId}`
+            table: 'bookings'
           },
           () => {
             if (mounted) fetchBookings();
