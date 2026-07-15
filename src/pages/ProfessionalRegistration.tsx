@@ -106,7 +106,7 @@ export const ProfessionalRegistration: React.FC = () => {
     setLoading(true);
     try {
       // Use a generated ID for professional registration
-      const userId = `prof_${Math.random().toString(36).substring(2, 10)}`;
+      const userId = crypto.randomUUID();
 
       // 1. Upload Documents to Storage if present
       let profilePhotoUrl = '';

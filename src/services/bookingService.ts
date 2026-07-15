@@ -103,8 +103,13 @@ export const bookingService = {
           throw insertError;
         }
       }
-    } catch (error) {
-      console.error('Error in ensureUserProfile:', error);
+    } catch (error: any) {
+      console.error('Error in ensureUserProfile details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
       throw error;
     }
   },

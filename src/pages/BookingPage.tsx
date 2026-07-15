@@ -209,7 +209,7 @@ export const BookingPage: React.FC = () => {
     setSubmitting(true);
     try {
       // Use a guest ID since auth is removed
-      const userId = `guest_${Math.random().toString(36).substring(2, 10)}`;
+      const userId = crypto.randomUUID();
       
       console.log('Booking as guest:', userId);
 
