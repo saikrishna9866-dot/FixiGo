@@ -1,39 +1,53 @@
+import { supabase } from './supabase';
 import { fallbackCategories, fallbackServices } from '../data/fallbackData';
 
 export const seedDatabase = async () => {
   try {
+    // 1. Seed Categories
     const categories = fallbackCategories.map(c => ({ name: c.name }));
-    const services = fallbackServices.map(s => ({
-      category_name: s.categories.name, // Temporary for mapping on server
-      title: s.title,
-      description: s.description,
-      image_url: s.image_url
-    }));
+    const { data: catData, error: catError } = await supabase.from('categories').insert(categories).select();
+    if (catError) throw catError;
 
+    // 2. Seed Services
+    const services = fallbackServices.map(s => {
+      const category = catData.find(c => c.name === s.categories.name);
+      return {
+        category_id: category?.id,
+        title: s.title,
+        description: s.description,
+        image_url: s.image_url
+      };
+    });
+    const { data: servData, error: servError } = await supabase.from('services').insert(services).select();
+    if (servError) throw servError;
+
+    // 3. Seed Providers
     const providers = [
       {
         name: 'John Doe',
         email: 'john@example.com',
         phone: '9876543210',
-        service_title: fallbackServices[0].title,
+        service_id: servData[0].id,
         experience: '5 years',
-        address: '123 Main St, City',
-        availability: { days: ['Mon', 'Tue', 'Wed'], slots: ['09:00 AM - 12:00 PM'] }
+        address: '123 Main St, City'
       },
       {
         name: 'Jane Smith',
         email: 'jane@example.com',
         phone: '9876543211',
-        service_title: fallbackServices[1].title,
+        service_id: servData[1].id,
         experience: '8 years',
-        address: '456 Oak Ave, City',
-        availability: { days: ['Wed', 'Thu', 'Fri'], slots: ['02:00 PM - 05:00 PM'] }
+        address: '456 Oak Ave, City'
       }
     ];
+    const { data: provData, error: provError } = await supabase.from('service_providers').insert(providers).select();
+    if (provError) throw provError;
 
+    // 4. Seed Bookings
     const bookings = [
       {
-        service_title: fallbackServices[0].title,
+        service_id: servData[0].id,
+        provider_id: provData[0].id,
         status: 'pending',
         address: '101 Demo St',
         city: 'Demo City',
@@ -44,7 +58,10 @@ export const seedDatabase = async () => {
         total_price: 500
       }
     ];
+    const { error: bookError } = await supabase.from('bookings').insert(bookings);
+    if (bookError) throw bookError;
 
+    // 5. Seed Messages
     const messages = [
       {
         full_name: 'Alice Johnson',
@@ -55,21 +72,8 @@ export const seedDatabase = async () => {
         status: 'pending'
       }
     ];
-
-    const response = await fetch('/api/admin/seed', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ categories, services, providers, bookings, messages })
-    });
-
-    let result;
-    try {
-      const text = await response.text();
-      result = JSON.parse(text);
-    } catch (e) {
-      throw new Error('Server returned invalid JSON. It might be restarting, please try again.');
-    }
-    if (!response.ok) throw new Error(result.error || 'Seed failed');
+    const { error: msgError } = await supabase.from('contact_messages').insert(messages);
+    if (msgError) throw msgError;
 
     return { success: true };
   } catch (error: any) {
@@ -80,15 +84,11 @@ export const seedDatabase = async () => {
 
 export const clearDatabase = async () => {
   try {
-    const response = await fetch('/api/admin/clear', { method: 'POST' });
-    let result;
-    try {
-      const text = await response.text();
-      result = JSON.parse(text);
-    } catch (e) {
-      throw new Error('Server returned invalid JSON. It might be restarting, please try again.');
+    const tables = ['contact_messages', 'bookings', 'service_providers', 'services', 'categories', 'users_profile'];
+    for (const table of tables) {
+      const { error } = await supabase.from(table).delete().neq('id', 'non-existent-id');
+      if (error) throw error;
     }
-    if (!response.ok) throw new Error(result.error || 'Clear failed');
     return { success: true };
   } catch (error: any) {
     console.error('Error clearing database:', error);
