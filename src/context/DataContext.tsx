@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Category, Service } from '../types';
 import { fallbackCategories, fallbackServices } from '../data/fallbackData';
 
@@ -23,6 +23,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [error, setError] = useState<string | null>(null);
 
   const fetchCategories = useCallback(async () => {
+    if (!isSupabaseConfigured) {
+      setCategories(fallbackCategories as Category[]);
+      setLoadingCategories(false);
+      return;
+    }
     setLoadingCategories(true);
     try {
       const { data, error } = await supabase
@@ -38,15 +43,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCategories(data as Category[]);
       }
     } catch (err: any) {
-      console.error('Error fetching categories:', err);
+      console.error('Fetch error:', err);
       setCategories(fallbackCategories as Category[]);
-      setError(err.message);
     } finally {
       setLoadingCategories(false);
     }
   }, []);
 
   const fetchServices = useCallback(async () => {
+    if (!isSupabaseConfigured) {
+      setServices(fallbackServices as Service[]);
+      setLoadingServices(false);
+      return;
+    }
     setLoadingServices(true);
     try {
       const { data, error } = await supabase
@@ -61,9 +70,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setServices(data as Service[]);
       }
     } catch (err: any) {
-      console.error('Error fetching services:', err);
+      console.error('Fetch error:', err);
       setServices(fallbackServices as Service[]);
-      setError(err.message);
     } finally {
       setLoadingServices(false);
     }
